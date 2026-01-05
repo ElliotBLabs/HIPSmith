@@ -35,10 +35,14 @@ build.ninja
 # Generated files
 src/git_version.cpp
 config.h
-
+share/
 # Files made by Csmith.
 output/
 platform.info
 
 # Files made by Csmith-generated programs.
 vol_addr.txt
+
+# Build 
+build/
+include/

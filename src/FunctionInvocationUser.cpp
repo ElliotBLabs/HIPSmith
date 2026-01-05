@@ -73,6 +73,8 @@ static vector<bool> needcomma;  // Flag to track output of commas
 static vector<const FunctionInvocationUser*>
     invocations;                          // list of function calls
 static vector<const Fact*> return_facts;  // list of return facts
+vector<FunctionInvocationUser*>
+    FunctionInvocationUser::AllFunctionInvocations;  // All function invocations
 
 const Fact* get_return_fact_for_invocation(const FunctionInvocationUser* fiu,
                                            const Variable* var,
@@ -149,6 +151,7 @@ FunctionInvocationUser::FunctionInvocationUser(Function* target,
       func(target),
       isBackLink(isBackLink) {
   // Nothing else to do.  Caller must build useful params.
+  AllFunctionInvocations.push_back(this);
 }
 
 /*
@@ -156,13 +159,20 @@ FunctionInvocationUser::FunctionInvocationUser(Function* target,
  */
 FunctionInvocationUser::FunctionInvocationUser(
     const FunctionInvocationUser& fiu)
-    : FunctionInvocation(fiu), func(fiu.func), isBackLink(fiu.isBackLink) {}
+    : FunctionInvocation(fiu), func(fiu.func), isBackLink(fiu.isBackLink) {
+  AllFunctionInvocations.push_back(this);
+}
 
 /*
  *
  */
 FunctionInvocationUser::~FunctionInvocationUser(void) {
   // Nothing to do.  This object does not own `*func'.
+  for (int i = AllFunctionInvocations.size() - 1; i >= 0; --i)
+    if (AllFunctionInvocations[i] == this) {
+      AllFunctionInvocations.erase(AllFunctionInvocations.begin() + i);
+      break;
+    }
 }
 
 FunctionInvocation* FunctionInvocationUser::clone() const {

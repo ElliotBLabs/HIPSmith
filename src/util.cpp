@@ -57,7 +57,7 @@ void reset_gensym() { gensym_count = 0; }
  */
 string gensym(const char *basename) {
   ostringstream ss;  //(basename, ios_base::ate); somehow this yields weird
-                     //result on windows
+                     // result on windows
   ss << basename;
   ss << ++gensym_count;
   return ss.str();

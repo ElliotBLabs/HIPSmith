@@ -760,7 +760,7 @@ void ArrayVariable::hash(std::ostream& out) const {
   const vector<const Variable*>& cvs = Variable::get_last_ctrl_vars();
   for (i = 0; i < get_dimension(); i++) {
     output_tab(out, indent);
-    out << "for (";
+    out << "for (int ";
     out << cvs[i]->get_actual_name();
     out << " = 0; ";
     out << cvs[i]->get_actual_name();

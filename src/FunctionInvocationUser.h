@@ -88,6 +88,10 @@ class FunctionInvocationUser : public FunctionInvocation {
   FunctionInvocationUser(Function* target, bool isBackLink,
                          const SafeOpFlags* flags);
 
+  static std::vector<FunctionInvocationUser*>* GetAllFunctionInvocations(void) {
+    return &AllFunctionInvocations;
+  }
+
  private:
   Function* func;
   bool isBackLink;
@@ -99,6 +103,9 @@ class FunctionInvocationUser : public FunctionInvocation {
   // FunctionInvocationUser &operator=(const FunctionInvocationUser &fi);
 
   bool build_invocation(Function* target, CGContext& cg_context);
+
+  // All function calls
+  static vector<FunctionInvocationUser*> AllFunctionInvocations;
 };
 
 const Fact* get_return_fact_for_invocation(const FunctionInvocationUser* fiu,
