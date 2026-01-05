@@ -31,6 +31,7 @@
 #define VECTOR_FILTER_H
 
 #include <vector>
+
 #include "Filter.h"
 
 class DistributionTable;
@@ -41,28 +42,28 @@ class DistributionTable;
 // Elements in the vector are valid
 #define NOT_FILTER_OUT 1
 
-class VectorFilter : public Filter
-{
-public:
-	VectorFilter(void);
-	VectorFilter(DistributionTable *table);
-	explicit VectorFilter(std::vector<unsigned int> &vs, int flag = FILTER_OUT);
+class VectorFilter : public Filter {
+ public:
+  VectorFilter(void);
+  VectorFilter(DistributionTable *table);
+  explicit VectorFilter(std::vector<unsigned int> &vs, int flag = FILTER_OUT);
 
-	VectorFilter& add(unsigned int item);
+  VectorFilter &add(unsigned int item);
 
-	int get_max_prob(void) const;
+  int get_max_prob(void) const;
 
-	int lookup(int v) const;
+  int lookup(int v) const;
 
-	virtual ~VectorFilter(void);
+  virtual ~VectorFilter(void);
 
-	virtual bool filter(int v) const;
-private:
-	std::vector<unsigned int> vs_;
+  virtual bool filter(int v) const;
 
-	DistributionTable *ptable;
+ private:
+  std::vector<unsigned int> vs_;
 
-	int flag_;
+  DistributionTable *ptable;
+
+  int flag_;
 };
 
-#endif // VECTOR_FILTER_H
+#endif  // VECTOR_FILTER_H

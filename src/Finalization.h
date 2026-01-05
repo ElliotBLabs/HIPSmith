@@ -31,11 +31,12 @@
 #define FINALIZATION_H
 
 class Finalization {
-public:
-	static void doFinalization();
-private:
-	Finalization();
-	~Finalization();
+ public:
+  static void doFinalization();
+
+ private:
+  Finalization();
+  ~Finalization();
 };
 
-#endif // FINALIZATION_H
+#endif  // FINALIZATION_H

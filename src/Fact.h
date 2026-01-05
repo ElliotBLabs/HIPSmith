@@ -37,13 +37,13 @@
 using namespace std;
 
 enum eFactCategory {
-    ePointTo=1,
-	eUnionWrite=2,
-    /* todo
-	eIntRange=8,
-    eEquality=16,
-    eAlias=32,
-	*/
+  ePointTo = 1,
+  eUnionWrite = 2,
+  /* todo
+      eIntRange=8,
+  eEquality=16,
+  eAlias=32,
+      */
 };
 
 class Statement;
@@ -57,56 +57,62 @@ class ExpressionVariable;
 
 ///////////////////////////////////////////////////////////////////////////////
 
-class Fact
-{
-public:
-	Fact(eFactCategory e);
+class Fact {
+ public:
+  Fact(eFactCategory e);
 
-	virtual ~Fact(void);
+  virtual ~Fact(void);
 
-	virtual Fact* clone(void) const = 0;
+  virtual Fact* clone(void) const = 0;
 
-	virtual int join(const Fact& /*fact*/) {return 0; };
+  virtual int join(const Fact& /*fact*/) { return 0; };
 
-	virtual int join_visits(const Fact& fact) { return join(fact);}
+  virtual int join_visits(const Fact& fact) { return join(fact); }
 
-	virtual bool imply(const Fact& /*fact*/) const = 0;
+  virtual bool imply(const Fact& /*fact*/) const = 0;
 
-	// lattice functions
-	virtual bool is_top(void) const = 0;
-	virtual bool is_bottom(void) const = 0;
-	virtual void set_top(void) = 0;
-	virtual void set_bottom(void) = 0;
+  // lattice functions
+  virtual bool is_top(void) const = 0;
+  virtual bool is_bottom(void) const = 0;
+  virtual void set_top(void) = 0;
+  virtual void set_bottom(void) = 0;
 
-	virtual bool is_assertable(const Statement* s) const = 0;
+  virtual bool is_assertable(const Statement* s) const = 0;
 
-	virtual bool is_related(const Fact& fact) const { return eCat == fact.eCat && get_var() == fact.get_var();}
+  virtual bool is_related(const Fact& fact) const {
+    return eCat == fact.eCat && get_var() == fact.get_var();
+  }
 
-	virtual bool equal(const Fact& fact) const { return this == &fact; };
+  virtual bool equal(const Fact& fact) const { return this == &fact; };
 
-	virtual void Output(std::ostream &out) const = 0;
+  virtual void Output(std::ostream& out) const = 0;
 
-	virtual void OutputAssertion(std::ostream &out, const Statement* s = NULL) const;
+  virtual void OutputAssertion(std::ostream& out,
+                               const Statement* s = NULL) const;
 
-	virtual const Variable* get_var(void) const { return 0;};
+  virtual const Variable* get_var(void) const { return 0; };
 
-	/// Given existing facts, LHS and RHS of the assignment, derive the new facts,
-	/// and return the number of possible assignees. In most cases that's 1. But
-	/// if LHS is a pointer dereference, the number of assignees could > 1 depending
-	/// on the points-to analysis.
-	virtual int abstract_fact_for_assign(const std::vector<const Fact*>& /*facts*/, const Lhs* /*lhs*/, const Expression* /*rhs*/, std::vector<const Fact*>&) = 0;
+  /// Given existing facts, LHS and RHS of the assignment, derive the new facts,
+  /// and return the number of possible assignees. In most cases that's 1. But
+  /// if LHS is a pointer dereference, the number of assignees could > 1
+  /// depending on the points-to analysis.
+  virtual int abstract_fact_for_assign(
+      const std::vector<const Fact*>& /*facts*/, const Lhs* /*lhs*/,
+      const Expression* /*rhs*/, std::vector<const Fact*>&) = 0;
 
-	virtual vector<const Fact*> abstract_fact_for_return(const std::vector<const Fact*>& facts, const ExpressionVariable* expr, const Function* func);
+  virtual vector<const Fact*> abstract_fact_for_return(
+      const std::vector<const Fact*>& facts, const ExpressionVariable* expr,
+      const Function* func);
 
-	vector<const Fact*> abstract_fact_for_var_init(const Variable* v);
+  vector<const Fact*> abstract_fact_for_var_init(const Variable* v);
 
-	static void doFinalization();
+  static void doFinalization();
 
-	enum eFactCategory eCat;
+  enum eFactCategory eCat;
 
-protected:
-	// keep track all created facts. used for releasing memory in doFinalization
-	static std::vector<Fact*> facts_;
+ protected:
+  // keep track all created facts. used for releasing memory in doFinalization
+  static std::vector<Fact*> facts_;
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -154,7 +160,7 @@ void print_facts(const FactVec& facts);
 /* print fact(s) in env regarding a given variable */
 void print_var_fact(const FactVec& facts, const char* vname);
 
-#endif // FACT_H
+#endif  // FACT_H
 
 // Local Variables:
 // c-basic-offset: 4

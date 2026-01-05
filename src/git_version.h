@@ -36,7 +36,7 @@ extern const char git_version[];
 
 ///////////////////////////////////////////////////////////////////////////////
 
-#endif // GIT_VERSION_H
+#endif  // GIT_VERSION_H
 
 // Local Variables:
 // c-basic-offset: 4

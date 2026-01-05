@@ -42,13 +42,13 @@
 
 #include <algorithm>
 #include <functional>
-#include <vector>
-#include <string>
 #include <iostream>
+#include <string>
+#include <vector>
 
 using std::string;
 using std::vector;
-using namespace std ;
+using namespace std;
 
 #ifdef WIN32
 #define INT64 __int64
@@ -56,7 +56,11 @@ using namespace std ;
 #define INT64 long long
 #endif
 
-#define BREAK_NOP {int i=0; i++;}
+#define BREAK_NOP \
+  {               \
+    int i = 0;    \
+    i++;          \
+  }
 
 // ----------------------------------------------------------------
 // Forward class declarations
@@ -70,7 +74,7 @@ class Variable;
 
 ///////////////////////////////////////////////////////////////////////////////
 
-#endif // COMMON_H
+#endif  // COMMON_H
 
 // Local Variables:
 // c-basic-offset: 4

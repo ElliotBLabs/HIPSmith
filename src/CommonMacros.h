@@ -32,7 +32,7 @@
 
 // Macro for disallowing copy and assign constructors
 #define DISALLOW_COPY_AND_ASSIGN(ClassName) \
-  ClassName(const ClassName&);               \
+  ClassName(const ClassName&);              \
   void operator=(const ClassName&)
 
-#endif // COMMON_MACROS_H
+#endif  // COMMON_MACROS_H

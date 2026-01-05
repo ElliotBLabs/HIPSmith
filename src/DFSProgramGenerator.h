@@ -36,29 +36,29 @@
 class OutputMgr;
 
 class DFSProgramGenerator : public AbsProgramGenerator {
-public:
-	DFSProgramGenerator(int argc, char *argv[], unsigned long seed);
+ public:
+  DFSProgramGenerator(int argc, char *argv[], unsigned long seed);
 
-	virtual ~DFSProgramGenerator();
+  virtual ~DFSProgramGenerator();
 
-	virtual OutputMgr* getOutputMgr() { return output_mgr_; }
+  virtual OutputMgr *getOutputMgr() { return output_mgr_; }
 
-	virtual void goGenerator();
+  virtual void goGenerator();
 
-	virtual void initialize();
+  virtual void initialize();
 
-	virtual std::string get_count_prefix(const std::string &name);
+  virtual std::string get_count_prefix(const std::string &name);
 
-private:
-	int argc_;
+ private:
+  int argc_;
 
-	char **argv_;
+  char **argv_;
 
-	unsigned long seed_;
+  unsigned long seed_;
 
-	INT64 good_count_;
+  INT64 good_count_;
 
-	OutputMgr *output_mgr_;
+  OutputMgr *output_mgr_;
 };
 
 #endif

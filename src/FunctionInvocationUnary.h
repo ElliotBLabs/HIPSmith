@@ -40,53 +40,50 @@
 class Type;
 class CGContext;
 
-class FunctionInvocationUnary : public FunctionInvocation
-{
-	friend class FunctionInvocation; /* XXX --- yuck! */
+class FunctionInvocationUnary : public FunctionInvocation {
+  friend class FunctionInvocation; /* XXX --- yuck! */
 
-public:
-	static FunctionInvocationUnary *CreateFunctionInvocationUnary(
-				CGContext &cg_context,
-				eUnaryOps op,
-				SafeOpFlags *flags);
+ public:
+  static FunctionInvocationUnary *CreateFunctionInvocationUnary(
+      CGContext &cg_context, eUnaryOps op, SafeOpFlags *flags);
 
-	virtual ~FunctionInvocationUnary(void);
+  virtual ~FunctionInvocationUnary(void);
 
-	virtual FunctionInvocation* clone() const;
+  virtual FunctionInvocation *clone() const;
 
-	virtual const Type &get_type(void) const;
+  virtual const Type &get_type(void) const;
 
-	virtual bool compatible(const Variable *v) const;
+  virtual bool compatible(const Variable *v) const;
 
-	virtual void Output(std::ostream &) const;
+  virtual void Output(std::ostream &) const;
 
-	virtual void indented_output(std::ostream &out, int indent) const;
+  virtual void indented_output(std::ostream &out, int indent) const;
 
-	virtual bool safe_invocation() const;
+  virtual bool safe_invocation() const;
 
-	virtual bool equals(int num) const;
+  virtual bool equals(int num) const;
 
-	virtual bool is_0_or_1(void) const { return eFunc == eNot;}
+  virtual bool is_0_or_1(void) const { return eFunc == eNot; }
 
-private:
-	eUnaryOps eFunc;
+ private:
+  eUnaryOps eFunc;
 
-	std::string tmp_var;
+  std::string tmp_var;
 
-private:
-	FunctionInvocationUnary(eUnaryOps op, SafeOpFlags *flags, std::string &name);
+ private:
+  FunctionInvocationUnary(eUnaryOps op, SafeOpFlags *flags, std::string &name);
 
-	FunctionInvocationUnary(eUnaryOps op, SafeOpFlags *flags);
+  FunctionInvocationUnary(eUnaryOps op, SafeOpFlags *flags);
 
-	explicit FunctionInvocationUnary(const FunctionInvocationUnary &funary);
+  explicit FunctionInvocationUnary(const FunctionInvocationUnary &funary);
 
-	// unimplemented
-	FunctionInvocationUnary &operator=(const FunctionInvocationUnary &fi);
+  // unimplemented
+  FunctionInvocationUnary &operator=(const FunctionInvocationUnary &fi);
 };
 
 ///////////////////////////////////////////////////////////////////////////////
 
-#endif // FUNCTION_INVOCATION_UNARY_H
+#endif  // FUNCTION_INVOCATION_UNARY_H
 
 // Local Variables:
 // c-basic-offset: 4

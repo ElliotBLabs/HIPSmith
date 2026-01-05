@@ -30,60 +30,61 @@
 #ifndef DEFAULT_OUTPUT_MGR_H
 #define DEFAULT_OUTPUT_MGR_H
 
-#include <vector>
-#include <string>
-#include <ostream>
 #include <fstream>
+#include <ostream>
+#include <string>
+#include <vector>
+
 #include "OutputMgr.h"
 
 using namespace std;
 
 class DefaultOutputMgr : public OutputMgr {
-public:
-	static DefaultOutputMgr *CreateInstance();
+ public:
+  static DefaultOutputMgr *CreateInstance();
 
-	virtual ~DefaultOutputMgr();
+  virtual ~DefaultOutputMgr();
 
-	static bool create_output_dir(std::string dir);
+  static bool create_output_dir(std::string dir);
 
-	virtual void OutputHeader(int argc, char *argv[], unsigned long seed);
+  virtual void OutputHeader(int argc, char *argv[], unsigned long seed);
 
-	virtual void Output();
+  virtual void Output();
 
-	virtual void outputln(ostream &out);
+  virtual void outputln(ostream &out);
 
-	virtual void output_comment_line(ostream &out, const std::string &comment);
+  virtual void output_comment_line(ostream &out, const std::string &comment);
 
-	virtual void output_tab(ostream &out, int indent);
+  virtual void output_tab(ostream &out, int indent);
 
-private:
-	explicit DefaultOutputMgr(std::ofstream *ofile);
+ private:
+  explicit DefaultOutputMgr(std::ofstream *ofile);
 
-	DefaultOutputMgr();
+  DefaultOutputMgr();
 
-	virtual std::ostream &get_main_out();
+  virtual std::ostream &get_main_out();
 
-	bool is_split();
+  bool is_split();
 
-	std::ofstream* open_one_output_file(int num);
+  std::ofstream *open_one_output_file(int num);
 
-	void init();
+  void init();
 
-	void OutputGlobals();
+  void OutputGlobals();
 
-	void OutputAllHeaders();
+  void OutputAllHeaders();
 
-	void RandomOutputDefs();
+  void RandomOutputDefs();
 
-	void RandomOutputVarDefs();
+  void RandomOutputVarDefs();
 
-	void RandomOutputFuncDefs();
+  void RandomOutputFuncDefs();
 
-	static DefaultOutputMgr *instance_;
+  static DefaultOutputMgr *instance_;
 
-	std::vector<std::ofstream* > outs;
+  std::vector<std::ofstream *> outs;
 
-	std::ofstream *ofile_;
+  std::ofstream *ofile_;
 };
 
-#endif // DEFAULT_OUTPUT_MGR_H
+#endif  // DEFAULT_OUTPUT_MGR_H
