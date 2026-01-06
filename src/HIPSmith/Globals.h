@@ -93,6 +93,11 @@ class Globals {
   // "local_struct->" to the start of every global variable.
   void ModifyGlobalVariableReferences();
 
+  // Gets the type of the global struct, as a ptr type. The actual type can be
+  // retrieved by calling:
+  //   const Type *type = GetGlobalStructPtrType().ptr_type;
+  const Type &GetGlobalStructPtrType();
+
   // Gets the Variable object that all the global variables are a part of.
   const Variable &GetGlobalStructVar();
 

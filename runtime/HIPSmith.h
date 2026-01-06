@@ -1,16 +1,19 @@
 #include <cstdint>
 
-#include "safe_math_macros.h"
+#define DEVICE_FORCE_INLINE __device__ __forceinline__
 
-#if defined(__GNUC__) || defined(__clang__)
-#define FORCE_INLINE inline __attribute__((always_inline))
-#else
-#define FORCE_INLINE inline
-#endif
+#define HIP_CHECK(expression)                                        \
+  {                                                                  \
+    const hipError_t err = expression;                               \
+    if (err != hipSuccess) {                                         \
+      std::cerr << "HIP error: " << hipGetErrorString(err) << " at " \
+                << __LINE__ << "\n";                                 \
+      exit(EXIT_FAILURE);                                            \
+    }                                                                \
+  }
 
-// Correct definition
-FORCE_INLINE void transparent_crc_no_string(uint64_t *crc64_context,
-                                            uint64_t val) {
+DEVICE_FORCE_INLINE void transparent_crc_no_string(uint64_t *crc64_context,
+                                                   uint64_t val) {
   *crc64_context += val;
 }
 

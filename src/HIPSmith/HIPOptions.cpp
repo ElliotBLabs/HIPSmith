@@ -11,15 +11,15 @@ namespace HIPSmith {
   type HIPOptions::name##_ = init;            \
   type HIPOptions::name() { return name##_; } \
   void HIPOptions::name(type x) { name##_ = x; }
-DEFINE_HIPFLAG(output, const char*, "HIPProg.cc")
+DEFINE_HIPFLAG(output, const char*, "HIPProg.hip")
 DEFINE_HIPFLAG(safe_math, bool, true)
-DEFINE_HIPFLAG(small, bool, false)
+DEFINE_HIPFLAG(small, bool, true)
 #undef DEFINE_CLFLAG
 
 void HIPOptions::set_default_settings() {
-  output_ = "HIPProg.cc";
+  output_ = "HIPProg.hip";
   safe_math_ = true;
-  small_ = false;
+  small_ = true;
 }
 
 void HIPOptions::ResolveCGOptions() {

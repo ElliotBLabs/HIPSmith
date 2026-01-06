@@ -539,6 +539,7 @@ void Function::OutputHeader(std::ostream &out) {
   if (CGOptions::force_globals_static()) {
     out << "static ";
   }
+  out << "__device__ ";
   rv->qfer.output_qualified_type(return_type, out);
   out << " " << get_prefixed_name(name) << "(";
   OutputFormalParamList(out);

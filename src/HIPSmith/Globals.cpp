@@ -154,6 +154,10 @@ void Globals::ModifyGlobalVariableReferences() {
 
 const Variable &Globals::GetGlobalStructVar() { return *struct_var_; }
 
+const Type &Globals::GetGlobalStructPtrType() {
+  return *struct_type_ptr_.get();
+}
+
 Globals *Globals::CreateGlobals() {
   return new Globals(*VariableSelector::GetGlobalVariables());
 }
