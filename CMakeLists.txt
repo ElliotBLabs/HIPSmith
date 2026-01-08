@@ -254,6 +254,20 @@ else()
     message(WARNING "Cannot build the safe math runtime header files because m4 was not found")
 endif()
 
-install(FILES ${CMAKE_SOURCE_DIR}/runtime/HIPSmith.h
-    DESTINATION include/HIPSmith
+configure_file(
+    "${CMAKE_SOURCE_DIR}/runtime/HIPSmith.h"
+    "${CMAKE_BINARY_DIR}/HIPSmith.h"
+    COPYONLY
+)
+
+configure_file(
+    "${CMAKE_SOURCE_DIR}/runtime/csmith.h"
+    "${CMAKE_BINARY_DIR}/csmith.h"
+    COPYONLY
+)
+
+configure_file(
+    "${CMAKE_SOURCE_DIR}/scripts/hip_test.py"
+    "${CMAKE_BINARY_DIR}/hip_test.py"
+    COPYONLY
 )

@@ -41,9 +41,6 @@
 #include <math.h>
 #include <string.h>
 
-#define __STDC_LIMIT_MACROS
-#include "random_inc.h"
-
 void transparent_crc_no_string(uint64_t *crc64_context, uint64_t val) {
   *crc64_context += val;
 }
