@@ -1882,6 +1882,8 @@ void OutputStructUnionDeclarations(std::ostream &out) {
   output_comment_line(out, "--- Struct/Union Declarations ---");
   for (i = 0; i < AllTypes.size(); i++) {
     Type *t = AllTypes[i];
+    // when this is called we assume its the first time they have been printed
+    t->printed = false;
     if (t->used && (t->eType == eStruct || t->eType == eUnion)) {
       OutputStructUnion(AllTypes[i], out);
     }
