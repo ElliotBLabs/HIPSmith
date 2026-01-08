@@ -152,7 +152,6 @@ add_executable(HIPSmith
     src/FunctionInvocationUnary.h
     src/FunctionInvocationUser.cpp
     src/FunctionInvocationUser.h
-    src/git_version.cpp
     src/KleeExtension.cpp
     src/KleeExtension.h
     src/Lhs.cpp

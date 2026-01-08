@@ -36,10 +36,6 @@ set(BIN_DIR "${CMAKE_INSTALL_PREFIX}/bin")
 
 ###############################################################################
 
-# Generate file "git_version.cpp".
-#
-configure_file("git_version.cpp.in" "git_version.cpp" @ONLY)
-
 include_directories(${CMAKE_BINARY_DIR})
 include_directories(${PROJECT_SOURCE_DIR}) # needed for gen'ed .cpp files
 
@@ -185,14 +181,12 @@ set(csmith_SOURCES
   VariableSelector.h
   VectorFilter.cpp
   VectorFilter.h
-  git_version.h
   platform.cpp
   platform.h
   random.cpp
   random.h
   util.cpp
   util.h
-  ${PROJECT_BINARY_DIR}/git_version.cpp
   )
 if(NOT HAVE_LRAND48)
   include_directories(${PROJECT_SOURCE_DIR}/rand48)

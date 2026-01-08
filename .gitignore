@@ -33,7 +33,6 @@ build.ninja
 .project
 
 # Generated files
-src/git_version.cpp
 config.h
 share/
 __pycache__/

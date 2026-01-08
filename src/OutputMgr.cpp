@@ -45,7 +45,6 @@
 #include "FunctionInvocation.h"
 #include "OutputMgr.h"
 #include "VariableSelector.h"
-#include "git_version.h"
 #include "platform.h"
 #include "random.h"
 #include "util.h"
@@ -253,7 +252,9 @@ void OutputMgr::OutputHeader(int argc, char *argv[], unsigned long seed) {
     out << " * This is a RANDOMLY GENERATED PROGRAM." << endl;
     out << " *" << endl;
     out << " * Generator: " << PACKAGE_STRING << endl;
-    out << " * Git version: " << git_version << endl;
+    #ifdef GIT_VERSION
+      out << "Git version: " << GIT_VERSION << endl;
+    #endif
     out << " * Options:  ";
     if (argc <= 1) {
       out << " (none)";
