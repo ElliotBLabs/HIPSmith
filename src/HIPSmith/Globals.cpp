@@ -71,12 +71,16 @@ void Globals::OutputStructInit(std::ostream &out) {
   for (Variable *var : global_vars_) {
     if (var->isArray) {
       ArrayVariable *var_array = dynamic_cast<ArrayVariable *>(var);
-      if (var_array->collective) continue;
+      if (var_array->collective) {
+        continue;
+      };
       output_tab(out, 2);
       std::vector<std::string> init_strings;
       init_strings.push_back(var_array->init->to_string());
-      for (const Expression *init : var_array->get_more_init_values())
+      for (const Expression *init : var_array->get_more_init_values()) {
         init_strings.push_back(init->to_string());
+      }
+
       out << var_array->build_initializer_str(init_strings);
     } else {
       output_tab(out, 2);

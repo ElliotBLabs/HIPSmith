@@ -36,6 +36,8 @@ build.ninja
 src/git_version.cpp
 config.h
 share/
+__pycache__/
+
 # Files made by Csmith.
 output/
 platform.info

@@ -13,13 +13,15 @@ namespace HIPSmith {
   void HIPOptions::name(type x) { name##_ = x; }
 DEFINE_HIPFLAG(output, const char*, "HIPProg.hip")
 DEFINE_HIPFLAG(safe_math, bool, true)
-DEFINE_HIPFLAG(small, bool, true)
-#undef DEFINE_CLFLAG
+DEFINE_HIPFLAG(small, bool, false)
+DEFINE_HIPFLAG(is_emitting_device_code, bool, false)
+#undef DEFINE_HIPFLAG
 
 void HIPOptions::set_default_settings() {
   output_ = "HIPProg.hip";
   safe_math_ = true;
-  small_ = true;
+  small_ = false;
+  is_emitting_device_code_ = false;
 }
 
 void HIPOptions::ResolveCGOptions() {
@@ -38,6 +40,8 @@ void HIPOptions::ResolveCGOptions() {
   // cpp options
   CGOptions::lang_cpp(true);
   CGOptions::cpp11(true);
+  // due to array initialisation problems (a global seed) we make this uniform
+  CGOptions::force_non_uniform_array_init(false);
 
   // Setting for small programs.
   if (small_) {

@@ -59,6 +59,7 @@
 #include "FactMgr.h"
 #include "FactPointTo.h"
 #include "Function.h"
+#include "HIPSmith/HIPOptions.h"
 #include "OutputMgr.h"
 #include "Statement.h"
 #include "Type.h"
@@ -66,7 +67,6 @@
 #include "VectorFilter.h"
 #include "random.h"
 #include "util.h"
-
 using namespace std;
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -539,7 +539,11 @@ void Function::OutputHeader(std::ostream &out) {
   if (CGOptions::force_globals_static()) {
     out << "static ";
   }
-  out << "__device__ ";
+
+  if (HIPSmith::HIPOptions::is_emitting_device_code()) {
+    out << "__device__ ";
+  }
+
   rv->qfer.output_qualified_type(return_type, out);
   out << " " << get_prefixed_name(name) << "(";
   OutputFormalParamList(out);

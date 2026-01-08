@@ -4,6 +4,7 @@
 #include <fstream>
 #include <sstream>
 
+#include "ArrayVariable.h"
 #include "Function.h"
 #include "HIPSmith/HIPOptions.h"
 #include "OutputMgr.h"
@@ -12,7 +13,8 @@
 
 namespace HIPSmith {
 
-HIPOutputMgr::HIPOutputMgr() : out_(HIPOptions::output()) {}
+HIPOutputMgr::HIPOutputMgr()
+    : out_(HIPOptions::output()), orig_out_("HIP-CCProg.cc") {}
 
 void HIPOutputMgr::OutputHeader(int argc, char *argv[], unsigned long seed) {
   std::ostream &out = get_main_out();
@@ -54,6 +56,10 @@ void HIPOutputMgr::OutputHeader(int argc, char *argv[], unsigned long seed) {
 }
 
 void HIPOutputMgr::Output() {
+  OutputOriginal();
+  // now will emit device coded functions
+  HIPOptions::is_emitting_device_code(true);
+
   std::ostream &out = get_main_out();
 
   OutputStructUnionDeclarations(out);
@@ -200,6 +206,63 @@ void HIPOutputMgr::OutputEntryFunction(Globals &globals) {
   output_tab(out, 1);
   out << "}" << std::endl;
 
+  output_tab(out, 1);
+  out << "return 0;" << std::endl;
+  out << "}" << std::endl;
+}
+
+void HIPOutputMgr::OutputOriginal() {
+  std::ostream &out = orig_out_;
+
+  out << "// "
+         "------------------------------------------------------------------\n"
+      << "// Standard Headers\n"
+      << "// "
+         "------------------------------------------------------------------\n"
+      << "#include <cstdint>\n"
+      << "#include <cstddef>\n"
+      << "#include <climits>\n"
+      << "#include <cstring>\n"
+      << "#include <iostream>\n\n"
+      << "// "
+         "------------------------------------------------------------------\n"
+      << "// Project Headers\n"
+      << "// "
+         "------------------------------------------------------------------\n"
+      << "#include \"csmith.h\"\n"
+      << "#include \"safe_math_macros.h\"\n\n"
+
+      << "// "
+         "------------------------------------------------------------------\n"
+      << "// Macros & Metadata\n"
+      << "// "
+         "------------------------------------------------------------------\n"
+      << "#define transparent_crc(X, Y, Z) transparent_crc_(&crc64_context, X, "
+         "Y, Z)\n";
+
+  OutputStructUnionDeclarations(out);
+  OutputGlobalVariables(out);
+  OutputForwardDeclarations(out);
+  OutputFunctions(out);
+
+  // 5. Standard Main
+  out << "int main(void) {" << std::endl;
+  output_tab(out, 1);
+  out << "func_1();" << std::endl;  // Standard entry
+  output_tab(out, 1);
+  out << "// CRC Context" << std::endl;
+  output_tab(out, 1);
+  out << "uint64_t crc64_context = 0xFFFFFFFFFFFFFFFFUL;" << std::endl;
+  output_tab(out, 1);
+  out << "int print_hash_value = 0;" << std::endl;
+  output_tab(out, 1);
+  out << "// Hash variables" << std::endl;
+  HashGlobalVariables(out);
+  out << std::endl;
+  output_tab(out, 1);
+
+  out << "std::cout <<  (crc64_context ^ 0xFFFFFFFFFFFFFFFFUL) << std::endl;"
+      << std::endl;
   output_tab(out, 1);
   out << "return 0;" << std::endl;
   out << "}" << std::endl;

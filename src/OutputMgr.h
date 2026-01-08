@@ -74,6 +74,10 @@ class OutputMgr {
 
   virtual void output_tab(ostream &out, int indent);
 
+  virtual bool is_main_out(std::ostream &out) {
+    return &out == &get_main_out();
+  }
+
   void OutputPtrResets(ostream &out, const vector<const Variable *> &ptrs);
 
   static const char *hash_func_name;

@@ -14,7 +14,10 @@ class Globals;
 class HIPOutputMgr : public OutputMgr {
  public:
   HIPOutputMgr();
-  ~HIPOutputMgr() { out_.close(); }
+  ~HIPOutputMgr() {
+    out_.close();
+    orig_out_.close();
+  }
 
   // Inherited from OutputMgr.
   // Outputs #defines and forward declarations.
@@ -30,6 +33,10 @@ class HIPOutputMgr : public OutputMgr {
 
  private:
   std::ofstream out_;
+  std::ofstream orig_out_;
+
+  // Helper to generate the standard CPP file
+  void OutputOriginal();
 
   // Outputs the main function that invokes the random program and reports back
   // a hash of the output

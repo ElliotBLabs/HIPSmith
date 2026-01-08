@@ -5,6 +5,7 @@
 
 #include "AbsProgramGenerator.h"
 #include "CommonMacros.h"
+#include "DefaultOutputMgr.h"
 #include "HIPSmith/HIPOutputMgr.h"
 #include "OutputMgr.h"
 
@@ -32,6 +33,7 @@ class HIPProgramGenerator : public AbsProgramGenerator {
 
  private:
   std::unique_ptr<OutputMgr> output_mgr_;
+
   unsigned long seed_;
 };
 

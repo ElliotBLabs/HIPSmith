@@ -22,7 +22,6 @@ void HIPProgramGenerator::goGenerator() {
   // outputting the program.
   GenerateAllTypes();
   GenerateFunctions();
-
   output_mgr_->Output();
 }
 
