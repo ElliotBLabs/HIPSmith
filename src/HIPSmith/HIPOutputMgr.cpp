@@ -200,9 +200,7 @@ void HIPOutputMgr::OutputEntryFunction(Globals &globals) {
   output_tab(out, 1);
   out << "for (size_t i = 0; i < h_results.size(); ++i) {" << std::endl;
   output_tab(out, 2);
-  out << "std::cout << \"Thread \" << i << \" CRC: \" << h_results[i] << "
-         "std::endl;"
-      << std::endl;
+  out << "printf(\"Thread %zu CRC: %lu\\n\", i, h_results[i]);" << std::endl;
   output_tab(out, 1);
   out << "}" << std::endl;
 
