@@ -62,7 +62,7 @@ enum eTypeDesc {
   eSimple,
   ePointer,
   eUnion,
-  eStruct,
+  eVector eStruct,
 };
 #define MAX_TYPE_DESC ((eTypeDesc)(eStruct + 1))
 
