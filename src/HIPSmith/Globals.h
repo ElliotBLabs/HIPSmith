@@ -129,6 +129,8 @@ class Globals {
   // Also created lazily, does not own the data. Want a single variable for the
   // globals, as we modify all the globals to refer to the same struct variable.
   Variable *struct_var_;
+
+  void FixAllIndexing(Variable *var);
 };
 
 }  // namespace HIPSmith

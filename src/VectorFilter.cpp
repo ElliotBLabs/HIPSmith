@@ -33,6 +33,7 @@
 
 #include <algorithm>
 #include <functional>
+#include <iostream>
 
 #include "ProbabilityTable.h"
 #include "VectorFilter.h"
@@ -78,6 +79,8 @@ int VectorFilter::get_max_prob(void) const {
 }
 
 int VectorFilter::lookup(int v) const {
-  if (!this->valid_filter() || ptable == NULL) return v;
+  if (!this->valid_filter() || ptable == NULL) {
+    return v;
+  }
   return v = ptable->rnd_num_to_key(v);
 }

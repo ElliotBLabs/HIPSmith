@@ -39,6 +39,7 @@
 #include "Common.h"
 #include "Expression.h"
 #include "FunctionInvocationUnary.h"
+#include "HIPSmith/Vector.h"
 #include "SafeOpFlags.h"
 #include "Type.h"
 #include "random.h"
@@ -124,7 +125,13 @@ const Type &FunctionInvocationUnary::get_type(void) const {
       break;
 
     case eNot:
-      return Type::get_simple_type(eInt);
+      const Type &l_type = param_value[0]->get_type();
+      const Type *simple_type = &Type::get_simple_type(eInt);
+      if (l_type.eType == eVector) {
+        simple_type = HIPSmith::Vector::PromoteTypeToVectorType(
+            simple_type, l_type.vector_length_);
+      }
+      return *simple_type;
       break;
   }
   assert(0);
@@ -197,6 +204,7 @@ void FunctionInvocationUnary::Output(std::ostream &out) const {
       break;
 
     case eMinus:
+      if (param_value[0]->get_type().eType == eVector) goto label;
       if (CGOptions::avoid_signed_overflow()) {
         assert(op_flags);
         if (op_flags->get_op_size() != sFloat) {
@@ -226,6 +234,7 @@ void FunctionInvocationUnary::Output(std::ostream &out) const {
       // Fallthrough!
 
     case ePlus:
+    label:
     case eNot:
     case eBitNot:
       OutputStandardFuncName(eFunc, out);

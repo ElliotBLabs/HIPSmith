@@ -15,6 +15,7 @@ DEFINE_HIPFLAG(output, const char*, "HIPProg.hip")
 DEFINE_HIPFLAG(safe_math, bool, true)
 DEFINE_HIPFLAG(small, bool, false)
 DEFINE_HIPFLAG(is_emitting_device_code, bool, false)
+DEFINE_HIPFLAG(vectors, bool, false)
 #undef DEFINE_HIPFLAG
 
 void HIPOptions::set_default_settings() {
@@ -22,6 +23,7 @@ void HIPOptions::set_default_settings() {
   safe_math_ = true;
   small_ = false;
   is_emitting_device_code_ = false;
+  vectors_ = false;
 }
 
 void HIPOptions::ResolveCGOptions() {

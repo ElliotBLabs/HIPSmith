@@ -26,6 +26,7 @@ class HIPOptions {
   DEFINE_HIPFLAG(safe_math, bool)
   DEFINE_HIPFLAG(small, bool)
   DEFINE_HIPFLAG(is_emitting_device_code, bool)
+  DEFINE_HIPFLAG(vectors, bool)
 #undef DEFINE_HIPFLAG
 
   static void set_default_settings();

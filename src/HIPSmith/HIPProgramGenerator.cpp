@@ -9,6 +9,8 @@
 #include <string>
 
 #include "Function.h"
+#include "HIPSmith/HIPExpression.h"
+#include "HIPSmith/Vector.h"
 #include "Type.h"
 
 class OutputMgr;
@@ -20,6 +22,8 @@ void HIPProgramGenerator::goGenerator() {
 
   // This creates the random program, the rest handles post-processing and
   // outputting the program.
+  HIPExpression::InitProbabilityTable();
+  Vector::GenerateVectorTypes();
   GenerateAllTypes();
   GenerateFunctions();
   output_mgr_->Output();
