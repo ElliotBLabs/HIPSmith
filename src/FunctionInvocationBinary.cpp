@@ -40,6 +40,7 @@
 #include "Expression.h"
 #include "FactMgr.h"
 #include "FunctionInvocationBinary.h"
+#include "HIPSmith/Vector.h"
 #include "SafeOpFlags.h"
 #include "Type.h"
 #include "random.h"
@@ -214,6 +215,10 @@ const Type &FunctionInvocationBinary::get_type(void) const {
       const Type &l_type = param_value[0]->get_type();
       const Type &r_type = param_value[1]->get_type();
       // XXX --- not really right!
+      if (l_type.eType == eVector || r_type.eType == eVector) {
+        assert(&l_type == &r_type);
+        return l_type;
+      }
       if ((l_type.is_signed()) && (r_type.is_signed())) {
         return Type::get_simple_type(eInt);
       } else {
@@ -228,14 +233,23 @@ const Type &FunctionInvocationBinary::get_type(void) const {
     case eCmpEq:
     case eCmpNe:
     case eAnd:
-    case eOr:
-      return Type::get_simple_type(eInt);
-      break;
+    case eOr: {
+      const Type &l_type = param_value[0]->get_type();
+      const Type *simple_type = &Type::get_simple_type(eInt);
+      if (l_type.eType == eVector) {
+        simple_type = HIPSmith::Vector::PromoteTypeToVectorType(
+            simple_type, l_type.vector_length_);
+      }
+      return *simple_type;
+    } break;
 
     case eRShift:
     case eLShift: {
       const Type &l_type = param_value[0]->get_type();
       // XXX --- not really right!
+      if (l_type.eType == eVector) {
+        return l_type;
+      }
       if (l_type.is_signed()) {
         return Type::get_simple_type(eInt);
       } else {
@@ -373,6 +387,7 @@ void FunctionInvocationBinary::Output(std::ostream &out) const {
       case eDiv:
       case eLShift:
       case eRShift:
+        if (param_value[0]->get_type().eType == eVector) goto label;
         if (CGOptions::avoid_signed_overflow()) {
           string fname = op_flags->to_string(eFunc);
           int id = SafeOpFlags::to_id(fname);
@@ -401,6 +416,7 @@ void FunctionInvocationBinary::Output(std::ostream &out) const {
         // fallthrough!
 
       default:
+      label:
         // explicit type casting for op1
         if (need_cast) {
           out << "(";
@@ -453,6 +469,7 @@ void FunctionInvocationBinary::indented_output(std::ostream &out,
       case eDiv:
       case eLShift:
       case eRShift:
+        if (param_value[0]->get_type().eType == eVector) goto label;
         if (CGOptions::avoid_signed_overflow()) {
           output_tab(out, indent);
           out << op_flags->to_string(eFunc);
@@ -478,6 +495,7 @@ void FunctionInvocationBinary::indented_output(std::ostream &out,
         // fallthrough!
 
       default:
+      label:
         param_value[0]->indented_output(out, indent);
         out << " ";
         OutputStandardFuncName(eFunc, out);

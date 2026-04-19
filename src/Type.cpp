@@ -52,6 +52,7 @@
 #include "Enumerator.h"
 #include "Error.h"
 #include "Filter.h"
+#include "HIPSmith/Vector.h"
 #include "Probabilities.h"
 #include "Type.h"
 #include "random.h"
@@ -1295,6 +1296,7 @@ bool Type::is_signed(void) const {
     default:
       return false;
 
+    case eVector:
     case eSimple:
       switch (simple_type) {
         case eUChar:
@@ -1314,7 +1316,7 @@ bool Type::is_signed(void) const {
 }
 
 const Type *Type::to_unsigned(void) const {
-  if (eType == eSimple) {
+  if (eType == eSimple || eType == eVector) {
     switch (simple_type) {
       case eUChar:
       case eUInt:
@@ -1487,6 +1489,7 @@ unsigned long Type::SizeInBytes(void) const {
   switch (eType) {
     default:
       break;
+    case eVector:
     case eSimple:
       switch (simple_type) {
         case eVoid:
@@ -1637,6 +1640,9 @@ bool Type::contain_pointer_field(void) const {
 // ---------------------------------------------------------------------
 void Type::Output(std::ostream &out) const {
   switch (eType) {
+    case eVector:
+      HIPSmith::Vector::OutputVectorType(out, this, vector_length_);
+      break;
     case eSimple:
       if (this->simple_type == eVoid) {
         out << "void";
@@ -1897,6 +1903,7 @@ std::string Type::printf_directive(void) const {
   string ret;
   size_t i;
   switch (eType) {
+    case eVector:
     case eSimple:
       if (SizeInBytes() >= 8) {
         ret = is_signed() ? "%lld" : "%llu";

@@ -57,6 +57,8 @@
 #include "FactUnion.h"
 #include "Filter.h"
 #include "Function.h"
+#include "HIPSmith/HIPOptions.h"
+#include "HIPSmith/Vector.h"
 #include "Lhs.h"
 #include "Probabilities.h"
 #include "ProbabilityTable.h"
@@ -286,6 +288,14 @@ bool VariableSelector::is_eligible_var(const Variable* var, int deref_level,
   if ((access == Effect::WRITE) && cg_context.is_nonwritable(var)) {
     return false;
   }
+  // ISSUE: lol
+  if (deref_level != 0 && var->isArray &&
+      static_cast<const ArrayVariable*>(var)->isVector) {
+    return false;
+  }
+  if (deref_level != 0 && var->name.find("comm_") != string::npos) {
+    return false;
+  }
   return true;
 }
 
@@ -331,6 +341,10 @@ Variable* VariableSelector::choose_ok_var(const vector<Variable*>& vars) {
     if (av->collective == 0) {
       v = av->itemize();
     }
+    // It might be an itemised vector, but with more than 1 element.
+    else if (static_cast<const ArrayVariable*>(av)->isVector) {
+      v = av->collective->itemize();
+    }
   }
   return v;
 }
@@ -352,6 +366,10 @@ const Variable* VariableSelector::choose_ok_var(
     const ArrayVariable* av = (const ArrayVariable*)v;
     if (av->collective == 0) {
       v = av->itemize();
+    }
+    // It might be an itemised vector, but with more than 1 element.
+    else if (static_cast<const ArrayVariable*>(av)->isVector) {
+      v = av->collective->itemize();
     }
   }
   return v;
@@ -486,11 +504,12 @@ Variable* VariableSelector::create_and_initialize(
   const Expression* init = NULL;
   Variable* var = NULL;
 
-  if (rnd_flipcoin(NewArrayVariableProb)) {
+  if (t->eType == eVector || rnd_flipcoin(NewArrayVariableProb)) {
+    const Type* simple_type = &HIPSmith::Vector::DemoteVectorTypeToType(t);
     if (CGOptions::strict_const_arrays()) {
-      init = Constant::make_random(t);
+      init = Constant::make_random(simple_type);
     } else {
-      init = make_init_value(access, cg_context, t, qfer, blk);
+      init = make_init_value(access, cg_context, simple_type, qfer, blk);
     }
     var = create_array_and_itemize(blk, name, cg_context, t, init, qfer);
   } else {
@@ -859,6 +878,10 @@ Expression* VariableSelector::make_init_value(Effect::Access access,
   } else {
     int deref_level = var->type->get_indirect_level() - t->get_indirect_level();
     if (deref_level < 0) Bookkeeper::record_address_taken(var);
+
+    // Assumes it can generate anything, best we can do atm is try again ...
+    if (var->isArray && static_cast<ArrayVariable*>(var)->isVector)
+      return make_init_value(access, cg_context, t, qf, b);
   }
 
   assert(var);
@@ -1272,8 +1295,15 @@ Variable* VariableSelector::select_deref_pointer(
 ArrayVariable* VariableSelector::create_array_and_itemize(
     Block* blk, string name, const CGContext& cg_context, const Type* t,
     const Expression* init, const CVQualifiers* qfer) {
-  ArrayVariable* av = ArrayVariable::CreateArrayVariable(cg_context, blk, name,
-                                                         t, init, qfer, NULL);
+  const Type* simple_type = &HIPSmith::Vector::DemoteVectorTypeToType(t);
+  ArrayVariable* av =
+      ((t->eType == eVector) ||
+       (t->eType == eSimple && HIPSmith::HIPOptions::vectors() &&
+        rnd_flipcoin(20)))
+          ? HIPSmith::Vector::CreateVectorVariable(
+                cg_context, blk, name, simple_type, init, qfer, NULL)
+          : ArrayVariable::CreateArrayVariable(cg_context, blk, name,
+                                               simple_type, init, qfer, NULL);
   ERROR_GUARD(NULL);
   AllVars.push_back(av);
   return av->itemize();
@@ -1310,8 +1340,12 @@ ArrayVariable* VariableSelector::create_random_array(
   qfer.add_qualifiers(false, false);
 
   Expression* init = Constant::make_random(type);
-  ArrayVariable* av = ArrayVariable::CreateArrayVariable(
-      cg_context, blk, name, type, init, &qfer, NULL);
+  ArrayVariable* av = (type->eType == eSimple &&
+                       HIPSmith::HIPOptions::vectors() && rnd_flipcoin(20))
+                          ? HIPSmith::Vector::CreateVectorVariable(
+                                cg_context, blk, name, type, init, &qfer, NULL)
+                          : ArrayVariable::CreateArrayVariable(
+                                cg_context, blk, name, type, init, &qfer, NULL);
   AllVars.push_back(av);
 
   // make the points-to fact known to DFA
@@ -1404,7 +1438,6 @@ ArrayVariable* VariableSelector::itemize_array(CGContext& cg_context,
     if (v == NULL) return NULL;
 
     const Expression* ev = new ExpressionVariable(*v);
-    ;
     // add random offset to the chosen induction variable
     unsigned int offset = 0;
     if (dimen_len - cg_context.iv_bounds[v] > 1) {

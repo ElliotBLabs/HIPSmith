@@ -62,6 +62,13 @@
 #include "VectorFilter.h"
 #include "random.h"
 
+// TODO Add ability to disable CLSmith, and prevent link failing on this
+// function.
+namespace HIPSmith {
+Expression *make_random(CGContext &cg_context, const Type *type,
+                        const CVQualifiers *qfer);  // Hook
+}  // namespace HIPSmith
+
 int eid = 0;
 
 DistributionTable Expression::exprTable_;
@@ -74,6 +81,7 @@ void Expression::InitExprProbabilityTable() {
   if (CGOptions::use_embedded_assigns()) {
     exprTable_.add_entry((int)eAssignment, 10);
   }
+  exprTable_.add_entry((int)eHIPExpression, 15);
   if (CGOptions::use_comma_exprs()) {
     exprTable_.add_entry((int)eCommaExpr, 10);
   }
@@ -176,7 +184,16 @@ Expression *Expression::make_random(CGContext &cg_context, const Type *type,
     if (cg_context.expr_depth + 2 > CGOptions::max_expr_depth()) {
       filter.add(eFunction).add(eAssignment).add(eCommaExpr);
     }
-    tt = ExpressionTypeProbability(&filter);
+    tt = type->eType == eVector ? eHIPExpression
+                                : ExpressionTypeProbability(&filter);
+    ERROR_GUARD(NULL);
+
+    // Do the check here so if it fails, we can easily select something else.
+    if (tt == eHIPExpression) e = HIPSmith::make_random(cg_context, type, qfer);
+    if (e == NULL) {
+      filter.add(eHIPExpression);
+      tt = ExpressionTypeProbability(&filter);
+    }
   }
 
   ERROR_GUARD(NULL);

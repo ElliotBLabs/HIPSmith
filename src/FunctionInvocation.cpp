@@ -62,6 +62,7 @@
 #include "FunctionInvocationBinary.h"
 #include "FunctionInvocationUnary.h"
 #include "FunctionInvocationUser.h"
+#include "HIPSmith/ExpressionVector.h"
 #include "Probabilities.h"
 #include "SafeOpFlags.h"
 #include "Type.h"
@@ -148,10 +149,23 @@ FunctionInvocation *FunctionInvocation::make_random_unary(CGContext &cg_context,
   } while (type->is_float() && !UnaryOpWorksForFloat(op));
   ERROR_GUARD(NULL);
   SafeOpFlags *flags = NULL;
-  flags = SafeOpFlags::make_random_unary(type, NULL, op);
-  ERROR_GUARD(NULL);
-  type = flags->get_lhs_type();
-  assert(type);
+  if (op == eMinus && type->eType != eVector) {
+    flags = SafeOpFlags::make_random_unary(type, NULL, op);
+    ERROR_GUARD(NULL);
+    type = flags->get_lhs_type();
+    assert(type);
+  }
+  // Type restirctions for vectors.
+  if (type->eType == eVector) {
+    // Not returns signed type.
+    if (!type->is_signed() && op == eNot) {
+      op = ePlus;
+    }
+    // Unlikely, but ++ and -- might overflow.
+    if (type->is_signed() && (op == ePlus || op == eMinus)) {
+      op = eNot;
+    }
+  }
 
   FunctionInvocation *fi =
       FunctionInvocationUnary::CreateFunctionInvocationUnary(cg_context, op,
@@ -170,7 +184,7 @@ FunctionInvocation *FunctionInvocation::make_random_unary(CGContext &cg_context,
 FunctionInvocation *FunctionInvocation::make_random_binary(
     CGContext &cg_context, const Type *type) {
   DEPTH_GUARD_BY_TYPE_RETURN(dtFunctionInvocationRandomBinary, NULL);
-  if (rnd_flipcoin(10) && Type::has_pointer_type()) {
+  if (rnd_flipcoin(10) && Type::has_pointer_type() && type->eType != eVector) {
     ERROR_GUARD(NULL);
     return make_random_binary_ptr_comparison(cg_context);
   }
@@ -185,6 +199,25 @@ FunctionInvocation *FunctionInvocation::make_random_binary(
       SafeOpFlags::make_random_binary(type, NULL, NULL, sOpBinary, op);
   assert(flags);
   ERROR_GUARD(NULL);
+  // Special stuff for vectors.
+  if (type->eType == eVector) {
+    // Only signed type can use logicals. Also no div or mod.
+    // TODO: Instead of changing the op, flip the sign of the type.
+    if (!type->is_signed() &&
+        (op == eCmpGt || op == eCmpLt || op == eCmpGe || op == eCmpLe ||
+         op == eCmpEq || op == eCmpNe || op == eAnd || op == eOr ||
+         op == eDiv || op == eMod)) {
+      op = eAdd;
+    }
+    // Only unsigned can use unsafe ops.
+    if (type->is_signed() &&
+        (op == eAdd || op == eSub || op == eMul || op == eDiv || op == eMod ||
+         op == eRShift || op == eLShift)) {
+      op = eAnd;
+    }
+    delete flags;
+    flags = SafeOpFlags::make_dummy_flags();
+  }
   FunctionInvocationBinary *fi =
       FunctionInvocationBinary::CreateFunctionInvocationBinary(cg_context, op,
                                                                flags);
@@ -196,6 +229,11 @@ FunctionInvocation *FunctionInvocation::make_random_binary(
   // Generate an expression with the correct type required by safe math operands
   const Type *lhs_type = flags->get_lhs_type();
   const Type *rhs_type = flags->get_rhs_type();
+  // More special stuff for vectors.
+  if (type->eType == eVector) {
+    lhs_type = type;
+    rhs_type = type;
+  }
   assert(lhs_type && rhs_type);
   if (!BinaryOpWorksForFloat(op)) {
     assert(!lhs_type->is_float() && "lhs_type is float!");
@@ -235,7 +273,12 @@ FunctionInvocation *FunctionInvocation::make_random_binary(
       bool not_constant = rnd_flipcoin(ShiftByNonConstantProb);
       // avoid shifting negative or too much
       if (!not_constant) {
-        rhs = Constant::make_random_upto(lhs_type->SizeInBytes() * 8);
+        rhs = lhs_type->eType == eVector
+                  ? dynamic_cast<Expression *>(
+                        HIPSmith::ExpressionVector::make_constant(
+                            rhs_type, lhs_type->SizeInBytes() * 8))
+                  : dynamic_cast<Expression *>(Constant::make_random_upto(
+                        lhs_type->SizeInBytes() * 8));
       } else {
         rhs = Expression::make_random(rhs_cg_context, rhs_type, NULL, false,
                                       true, tt);

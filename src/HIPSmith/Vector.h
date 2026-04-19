@@ -1,0 +1,124 @@
+// Vectors!
+
+#ifndef _HIPSMITH_VECTOR_H_
+#define _HIPSMITH_VECTOR_H_
+
+#include <map>
+#include <ostream>
+#include <string>
+#include <utility>
+#include <vector>
+
+#include "ArrayVariable.h"
+#include "CGContext.h"
+
+class Block;
+class CVQualifiers;
+class Expression;
+class Type;
+class Variable;
+
+namespace HIPSmith {
+
+// Handles HIP's vector type.
+// Treated mostly the same as an array during generation. Only the output and
+// size need special handling.
+class Vector : public ArrayVariable {
+ public:
+  // Basic constructor with parameters required by ArrayVariable.
+  // Will only accept 1-dimensional sizes.
+  Vector(Block* blk, const std::string& name, const Type* type,
+         const Expression* init, const CVQualifiers* qfer, unsigned size,
+         const Variable* isFieldVarOf)
+      : ArrayVariable(blk, name, type, init, qfer, {size}, isFieldVarOf, true),
+        comp_access_index_(-1) {  // -1 means the whole vector is being
+                                  // accessed, not a component.
+  }
+
+  // Copy constructor required, as ArrayVariable frequently uses it during
+  // itemisation.
+  Vector(const Vector& other) = default;
+  Vector& operator=(const Vector& other) = default;
+  // No move constructors in ArrayVariable, copy will be performed.
+  Vector(Vector&& other) = default;
+  Vector& operator=(Vector&& other) = default;
+  virtual ~Vector() {}
+
+  // Factory for producing a vector variable.
+  // Parameters are mostly just forwarded on to the ArrayVariable constructor.
+  static Vector* CreateVectorVariable(const CGContext& cg_context, Block* blk,
+                                      const std::string& name, const Type* type,
+                                      const Expression* init,
+                                      const CVQualifiers* qfer,
+                                      const Variable* isFieldVarOf);
+
+  // Itemise methods for using a specific entry in the vector. All accesses must
+  // be a constant index, so the last two methods will randomise the access.
+  // Note: HIP strictly limits component access to single elements (no
+  // swizzling).
+  Vector* itemize(void) const;
+  Vector* itemize(const std::vector<int>& const_indices) const;
+  Vector* itemize(const std::vector<const Variable*>& indices,
+                  Block* blk) const {
+    return itemize();
+  }
+  Vector* itemize(const std::vector<const Expression*>& indices,
+                  Block* blk) const {
+    return itemize();
+  }
+
+  // Methods that control how the array is printed.
+  // In all cases, there is only one index, which is printed as a character
+  // after a dot:
+  //  'vec[2]' -> 'vec.z'
+  void Output(std::ostream& out) const;
+  void OutputDef(std::ostream& out, int indent) const;
+  void OutputDecl(std::ostream& out) const;
+  void hash(std::ostream& out) const;
+
+  // Creates a string used for initialising this vector. This has the form
+  // make_typen(...) with the number of elements in the brackets
+  // matching the size of the vector.
+  // The initialiser list can have elements grouped into smaller vectors:
+  //   int4 vec = make_int4(4, make_int2(1, 2), 6)
+  std::string build_initializer_str(
+      const std::vector<std::string>& init_strings) const;
+
+  // Get a random valid HIP vector length no greater than the specified maximum.
+  // If max is 0, a random length of 1, 2, 3, or 4 will be chosen.
+  static int GetRandomVectorLength(int max);
+
+  // Convert a simple type to a vector type. Giving a size of 0 will create a
+  // random vector length. The type can already be a vector type, so this can be
+  // used to change the length.
+  static const Type* PromoteTypeToVectorType(const Type* type, int size);
+  // Convert from a vector type to the underlying simple type.
+  static const Type& DemoteVectorTypeToType(const Type* type);
+
+  // Returns the character corresponding to the component that is accessed.
+  // For HIP, it is strictly one of x, y, z, or w.
+  static char GetComponentChar(int vector_size, int index);
+
+  // Outputs the vector type, without qualifiers:
+  //   int4, float2, etc.
+  static void OutputVectorType(std::ostream& out, const Type* type,
+                               int vector_size);
+
+  // Must be called on startup, generates all the vector types.
+  static void GenerateVectorTypes();
+
+ private:
+  // Keeps track of a single component access in an itemisation.
+  // e.g. 'vec.y' will be 1.
+  int comp_access_index_;
+
+  // All vector types. These will be pre-generated, as many of the functions
+  // that check for type compatibilities between variables rely on the types
+  // being identical.
+  static std::map<std::pair<enum eSimpleType, unsigned>, const Type*>
+      vector_types_;
+};
+
+}  // namespace HIPSmith
+
+#endif  // _HIPSMITH_VECTOR_H_

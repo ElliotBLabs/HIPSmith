@@ -160,13 +160,8 @@ void Globals::ModifyGlobalVariableReferences() {
         ModifyGlobalAggregateVariableReferences(var);
       }
     }
-    if (var->name.find("l_") == 0 && var->is_aggregate()) {
-      for (Variable *field_var : var->field_vars) {
-        if (field_var->name.find("[") != std::string::npos) {
-          FixStructArrays(field_var, field_var->name.find("["));
-        }
-      }
-    }
+
+    FixAllIndexing(var);
   }
 }
 
@@ -234,6 +229,17 @@ void Globals::FixStructArrays(Variable *field_var, size_t pos) {
       pos += to_insert.length();
     } else
       pos++;
+  }
+}
+
+void Globals::FixAllIndexing(Variable *var) {
+  // If we index in the name
+  if (var->name.find("[") != std::string::npos) {
+    FixStructArrays(var, var->name.find("["));
+  }
+  // recurse into its fields and fix 
+  for (Variable *field : var->field_vars) {
+    FixAllIndexing(field);
   }
 }
 

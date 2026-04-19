@@ -29,7 +29,7 @@
  */
 
 #if HAVE_CONFIG_H
-#  include <config.h>
+#include <config.h>
 #endif
 
 /*****************************************************************************/
@@ -41,14 +41,10 @@
 /*
  *
  */
-#define DEFINE_VOLATILE_FUNCTIONS(type)				\
-	type											\
-	volatile_##type##_ptr_read(volatile type *p)	\
-	{ return *p; }									\
-													\
-	volatile type *									\
-	volatile_##type##_ptr_id(volatile type *p)		\
-	{ return p; }
+#define DEFINE_VOLATILE_FUNCTIONS(type)                            \
+  type volatile_##type##_ptr_read(volatile type *p) { return *p; } \
+                                                                   \
+  volatile type *volatile_##type##_ptr_id(volatile type *p) { return p; }
 
 DEFINE_VOLATILE_FUNCTIONS(int8_t)
 DEFINE_VOLATILE_FUNCTIONS(int16_t)

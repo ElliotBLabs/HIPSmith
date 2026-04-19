@@ -44,6 +44,9 @@ void HIPOutputMgr::OutputHeader(int argc, char *argv[], unsigned long seed) {
          "------------------------------------------------------------------\n"
       << "#include \"HIPSmith.h\"\n"
       << "#include \"safe_math_macros.h\"\n\n"
+      << "#include \"safe_math_macros.h\"\n\n"
+      << "#define uint8_t unsigned char\n"
+      << "#define int8_t char\n"
 
       << "// "
          "------------------------------------------------------------------\n"
@@ -229,7 +232,8 @@ void HIPOutputMgr::OutputOriginal() {
          "------------------------------------------------------------------\n"
       << "#include \"csmith.h\"\n"
       << "#include \"safe_math_macros.h\"\n\n"
-
+      << "#define uint8_t unsigned char\n"
+      << "#define int8_t char\n"
       << "// "
          "------------------------------------------------------------------\n"
       << "// Macros & Metadata\n"

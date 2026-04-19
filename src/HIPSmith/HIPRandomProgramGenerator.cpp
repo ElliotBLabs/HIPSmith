@@ -20,6 +20,34 @@ int main(int argc, char **argv) {
   CGOptions::set_default_settings();
   HIPSmith::HIPOptions::ResolveCGOptions();
 
+  for (int idx = 1; idx < argc; ++idx) {
+    // 1. Toggle Flag
+    if (strcmp(argv[idx], "--vectors") == 0) {
+      HIPSmith::HIPOptions::vectors(true);
+      continue;
+    }
+
+    if (strcmp(argv[idx], "--seed") == 0) {
+      if (idx + 1 >= argc) {
+        std::cerr << "Error: --seed requires a value." << std::endl;
+        return -1;
+      }
+
+      char *endptr;
+      g_Seed = strtoll(argv[idx + 1], &endptr, 10);
+
+      if (*endptr != '\0') {
+        std::cerr << "Error: Invalid seed value \"" << argv[idx + 1] << "\""
+                  << std::endl;
+        return -1;
+      }
+      idx++;
+      continue;
+    }
+
+    std::cout << "Invalid option \"" << argv[idx] << "\"" << std::endl;
+    return -1;
+  }
   // AbsProgramGenerator does other initialisation stuff, besides itself. So
   // we call it, disregarding the returned object. Still need to delete it.
   AbsProgramGenerator *generator =
