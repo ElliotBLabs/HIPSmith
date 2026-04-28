@@ -226,6 +226,4 @@ void Vector::GenerateVectorTypes() {
   }
 }
 
-
-
 }  // namespace HIPSmith
