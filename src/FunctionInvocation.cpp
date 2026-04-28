@@ -155,18 +155,19 @@ FunctionInvocation *FunctionInvocation::make_random_unary(CGContext &cg_context,
     type = flags->get_lhs_type();
     assert(type);
   }
-  // Type restirctions for vectors.
+  // special vector restrictions
   if (type->eType == eVector) {
-    // Not returns signed type.
-    if (!type->is_signed() && op == eNot) {
-      op = ePlus;
+    // + and ! are not supported on any HIP vectors
+    if (op == eNot || op == ePlus) {
+      op = eBitNot;
     }
-    // Unlikely, but ++ and -- might overflow.
-    if (type->is_signed() && (op == ePlus || op == eMinus)) {
-      op = eNot;
+
+    // - is supported on signed vectors only
+    if (!type->is_signed() && op == eMinus) {
+      op = eBitNot;
     }
   }
-
+  
   FunctionInvocation *fi =
       FunctionInvocationUnary::CreateFunctionInvocationUnary(cg_context, op,
                                                              flags);
@@ -200,24 +201,34 @@ FunctionInvocation *FunctionInvocation::make_random_binary(
   assert(flags);
   ERROR_GUARD(NULL);
   // Special stuff for vectors.
-  if (type->eType == eVector) {
-    // Only signed type can use logicals. Also no div or mod.
-    // TODO: Instead of changing the op, flip the sign of the type.
-    if (!type->is_signed() &&
-        (op == eCmpGt || op == eCmpLt || op == eCmpGe || op == eCmpLe ||
-         op == eCmpEq || op == eCmpNe || op == eAnd || op == eOr ||
-         op == eDiv || op == eMod)) {
-      op = eAdd;
+  // this is taken from openCL standard but maybe look to create 
+  // UB free versions this is just tricky for reducing as we do not have sanitizers 
+  // to check for vector UB
+	if (type->eType == eVector) {
+    // == and != are defined but return bools so not appropriate to define here
+    // HIP does not support && or ||  or any relationals on vectors
+    if (op == eAnd) {
+      op = eBitAnd;
+    } else if (op == eOr) {
+      op = eBitOr;
+    } else if (op == eCmpGt || op == eCmpLt || op == eCmpGe || op == eCmpLe ||
+               op == eCmpEq || op == eCmpNe) {
+      op = eBitXor; 
     }
-    // Only unsigned can use unsafe ops.
-    if (type->is_signed() &&
-        (op == eAdd || op == eSub || op == eMul || op == eDiv || op == eMod ||
-         op == eRShift || op == eLShift)) {
-      op = eAnd;
-    }
-    delete flags;
-    flags = SafeOpFlags::make_dummy_flags();
-  }
+
+    // worried of UB so no div or mod
+		if (op==eDiv || op==eMod) {
+			op = eAdd;
+		}
+		// worried of UB so only unsigned can use unsafe ops.
+		if (type->is_signed() && (
+			op==eAdd || op==eSub    || op==eMul || op==eDiv ||
+			op==eMod || op==eRShift || op==eLShift)) {
+			op = eBitAnd;
+		}
+		delete flags;
+		flags = SafeOpFlags::make_dummy_flags();
+	}
   FunctionInvocationBinary *fi =
       FunctionInvocationBinary::CreateFunctionInvocationBinary(cg_context, op,
                                                                flags);

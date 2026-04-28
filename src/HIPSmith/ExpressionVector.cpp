@@ -46,9 +46,6 @@ ExpressionVector *ExpressionVector::make_random(CGContext &cg_context,
     size = Vector::GetRandomVectorLength(0);
   }
 
-  // Note: HIP strictly supports lengths up to 4.
-  assert(size <= 4);
-
   assert(vector_expr_table != NULL);
   int num = rnd_upto(30);
   enum VectorExprType vec_expr_type =
@@ -76,11 +73,13 @@ ExpressionVector *ExpressionVector::make_random(CGContext &cg_context,
     exprs.emplace_back(
         ExpressionVariable::make_random(cg_context, vec_type, qfer));
   } else if (vec_expr_type == kSIMD) {
+    // Produce an expression that performs a series of operations on vectors. We
+    // borrow from csmith's expression generation where possible.
     const Type *vec_type = Vector::PromoteTypeToVectorType(type, size);
-    exprs.emplace_back(Expression::make_random(cg_context, vec_type, qfer));
+    exprs.emplace_back(Expression::make_random(cg_context, vec_type, qfer,
+                                               false, false, eFunction));
     assert(exprs.back()->get_type().eType == eVector);
   }
-  // not implemented builtins yet
   // else /*kBuiltIn*/ {
   //   const Type *vec_type = Vector::PromoteTypeToVectorType(type, size);
   //   exprs.emplace_back(new ExpressionFuncall(
@@ -115,8 +114,7 @@ void ExpressionVector::InitProbabilityTable() {
   vector_expr_table->add_entry(kLiteral, 10);
   vector_expr_table->add_entry(kVariable, 10);
   vector_expr_table->add_entry(kSIMD, 10);
-  // vector_expr_table->add_entry(kBuiltIn, 10); disabled for now we need to
-  // change total probability if we add this!
+  vector_expr_table->add_entry(kBuiltIn, 10);
 }
 
 ExpressionVector *ExpressionVector::clone() const {

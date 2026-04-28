@@ -214,7 +214,7 @@ const Type &FunctionInvocationBinary::get_type(void) const {
     case eBitOr: {
       const Type &l_type = param_value[0]->get_type();
       const Type &r_type = param_value[1]->get_type();
-      // XXX --- not really right!
+      // we enforce vector type on either side is the same for these ops
       if (l_type.eType == eVector || r_type.eType == eVector) {
         assert(&l_type == &r_type);
         return l_type;
@@ -231,9 +231,7 @@ const Type &FunctionInvocationBinary::get_type(void) const {
     case eCmpGe:
     case eCmpLe:
     case eCmpEq:
-    case eCmpNe:
-    case eAnd:
-    case eOr: {
+    case eCmpNe: {
       const Type &l_type = param_value[0]->get_type();
       const Type *simple_type = &Type::get_simple_type(eInt);
       if (l_type.eType == eVector) {
@@ -243,10 +241,18 @@ const Type &FunctionInvocationBinary::get_type(void) const {
       return *simple_type;
     } break;
 
+    case eAnd:
+    case eOr: {
+      const Type &l_type = param_value[0]->get_type();
+      // HIP does not support logical && or || on vector types.
+      assert(l_type.eType != eVector && "Logical && and || are not allowed for vectors in HIP");
+      return Type::get_simple_type(eInt);
+    } break;
+
     case eRShift:
     case eLShift: {
       const Type &l_type = param_value[0]->get_type();
-      // XXX --- not really right!
+      // for shifts we just allow the vector
       if (l_type.eType == eVector) {
         return l_type;
       }
