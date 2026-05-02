@@ -264,7 +264,15 @@ static string RandomFunctionName(void) { return gensym("func_"); }
  *************************************************************/
 static const Type *RandomReturnType(void) {
   const Type *t = 0;
-  t = Type::choose_random();
+  bool is_vector = false;
+
+  // we block vector return types due to them currently not being able
+  // to be selected as a variable without being itemised due to
+  // extending arrayvariable :(
+  do {
+    t = Type::choose_random();
+  } while (t->eType == eVector);
+
   return t;
 }
 

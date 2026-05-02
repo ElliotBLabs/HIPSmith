@@ -165,10 +165,12 @@ Expression *Expression::make_random(CGContext &cg_context, const Type *type,
   assert(!(type->eType == eStruct && tt == eConstant));
 
   // if no term type is provided, choose a random term type with restrictions
+  // again we currently restrict vectors as a return type
   if (tt == MAX_TERM_TYPES) {
     VectorFilter filter(&Expression::exprTable_);
     if (no_func || (!CGOptions::return_structs() && type->eType == eStruct) ||
-        (!CGOptions::return_unions() && type->eType == eUnion)) {
+        (!CGOptions::return_unions() && type->eType == eUnion) ||
+        (type->eType == eVector)) {
       filter.add(eFunction);
     }
     // struct constants can't be subexpressions (union constant can't either?)
