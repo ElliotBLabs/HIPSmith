@@ -69,26 +69,40 @@ void Globals::OutputStructInit(std::ostream &out) {
   out << " " << local_name2 << " = {" << std::endl;
 
   for (Variable *var : global_vars_) {
+    // prevents arrays being printed twice
     if (var->isArray) {
       ArrayVariable *var_array = dynamic_cast<ArrayVariable *>(var);
       if (var_array->collective) {
         continue;
-      };
-      output_tab(out, 2);
+      }
+    }
+
+    output_tab(out, 2);
+    
+    // This is a bit hacky as we have already rename this to be like "p_xxxx->" 
+    // but we need to strip this back out as the only time!q
+    std::string raw_name = var->name;
+    size_t arrow_pos = raw_name.find("->");
+    if (arrow_pos != std::string::npos) {
+      raw_name = raw_name.substr(arrow_pos + 2);
+    }
+    
+    // ends up being like .g_16 = {5,83,0xDE0184DCC80FC3A0LL,5070,-10,0},
+    out << "." << raw_name << " = ";
+
+    if (var->isArray) {
+      ArrayVariable *var_array = dynamic_cast<ArrayVariable *>(var);
       std::vector<std::string> init_strings;
       init_strings.push_back(var_array->init->to_string());
       for (const Expression *init : var_array->get_more_init_values()) {
         init_strings.push_back(init->to_string());
       }
-
       out << var_array->build_initializer_str(init_strings);
     } else {
-      output_tab(out, 2);
       var->init->Output(out);
     }
-    out << ", // ";
-    var->Output(out);
-    out << std::endl;
+    
+    out << "," << std::endl;
   }
 
   output_tab(out, 1);
