@@ -204,7 +204,19 @@ void FunctionInvocationUnary::Output(std::ostream &out) const {
       break;
 
     case eMinus:
-      if (param_value[0]->get_type().eType == eVector) goto label;
+      if (param_value[0]->get_type().eType == eVector) {
+        // hijack outputs for vectors
+        // than using csmiths safe flags
+        if (CGOptions::avoid_signed_overflow()) {
+          std::string fname = "safe_unary_minus";
+          out << fname << "(";
+          param_value[0]->Output(out);
+          out << ")";
+          break;
+        } else {
+          goto label;
+        }
+      }
       if (CGOptions::avoid_signed_overflow()) {
         assert(op_flags);
         if (op_flags->get_op_size() != sFloat) {
@@ -262,6 +274,18 @@ void FunctionInvocationUnary::indented_output(std::ostream &out,
       break;
 
     case eMinus:
+      // hijack outputting for vectors
+      if (param_value[0]->get_type().eType == eVector) {
+        if (CGOptions::avoid_signed_overflow()) {
+          std::string fname = "safe_unary_minus";
+          out << fname;
+          output_open_encloser("(", out, indent);
+          param_value[0]->indented_output(out, indent);
+          output_close_encloser(")", out, indent);
+          break;
+        }
+      }
+
       if (CGOptions::avoid_signed_overflow()) {
         out << op_flags->to_string(eFunc);
         output_open_encloser("(", out, indent);

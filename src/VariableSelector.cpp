@@ -1374,6 +1374,10 @@ ArrayVariable* VariableSelector::select_array(const CGContext& cg_context) {
     assert(av);
     if (av->collective != 0) continue;
 
+    // we are using this for generating looping style array behaviour which we
+    // want to avoid
+    if (av->isVector) continue;
+
     if (!cg_context.get_effect_context().is_read_partially(av) &&
         !cg_context.get_effect_context().is_written_partially(av) &&
         (cg_context.get_effect_context().is_side_effect_free() ||
@@ -1478,7 +1482,11 @@ const Variable* VariableSelector::select_must_use_var(
 
         if (v->isArray) {
           const ArrayVariable* av = dynamic_cast<const ArrayVariable*>(v);
-          var = VariableSelector::itemize_array(cg_context, av);
+          if (av->isVector) {
+            var = av->itemize();
+          } else {
+            var = VariableSelector::itemize_array(cg_context, av);
+          }
         } else {
           var = v;
         }
