@@ -82,16 +82,16 @@ FunctionInvocation *FunctionInvocation::make_random(bool is_std_func,
                                                     const Type *type,
                                                     const CVQualifiers *qfer) {
   FunctionInvocation *fi = 0;
-  
-  // we use this to say if we get into the point where we want to generate a function
-  // invocation where a vector is needed we want to preveent functions with vector 
-  // return types being generated as these are not supported at this time
-  // we block vector function generation
+
+  // we use this to say if we get into the point where we want to generate a
+  // function invocation where a vector is needed we want to preveent functions
+  // with vector return types being generated as these are not supported at this
+  // time we block vector function generation
   bool prohibit_user_func = (type && type->eType == eVector);
 
   // If we are looking for a program-defined function, try to find one.
   if (!is_std_func && !prohibit_user_func) {
-    Function *callee = NULL; 
+    Function *callee = NULL;
     if (pure_rnd_flipcoin(50)) {
       callee =
           Function::choose_func(get_all_functions(), cg_context, type, qfer);
@@ -223,16 +223,17 @@ FunctionInvocation *FunctionInvocation::make_random_binary(
       op = eBitXor;
     }
 
-    // worried of UB so no div or mod
-    if (op == eDiv || op == eMod) {
-      op = eAdd;
-    }
-    // worried of UB so only unsigned can use unsafe ops.
-    if (type->is_signed() &&
-        (op == eAdd || op == eSub || op == eMul || op == eDiv || op == eMod ||
-         op == eRShift || op == eLShift)) {
-      op = eBitAnd;
-    }
+    // // worried of UB so no div or mod
+    // if (op == eDiv || op == eMod) {
+    //   op = eAdd;
+    // }
+    // // worried of UB so only unsigned can use unsafe ops.
+    // if (type->is_signed() &&
+    //     (op == eAdd || op == eSub || op == eMul || op == eDiv || op == eMod
+    //     ||
+    //      op == eRShift || op == eLShift)) {
+    //   op = eBitAnd;
+    // }
     delete flags;
     flags = SafeOpFlags::make_dummy_flags();
   }

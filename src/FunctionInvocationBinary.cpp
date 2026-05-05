@@ -245,7 +245,8 @@ const Type &FunctionInvocationBinary::get_type(void) const {
     case eOr: {
       const Type &l_type = param_value[0]->get_type();
       // HIP does not support logical && or || on vector types.
-      assert(l_type.eType != eVector && "Logical && and || are not allowed for vectors in HIP");
+      assert(l_type.eType != eVector &&
+             "Logical && and || are not allowed for vectors in HIP");
       return Type::get_simple_type(eInt);
     } break;
 
@@ -393,7 +394,48 @@ void FunctionInvocationBinary::Output(std::ostream &out) const {
       case eDiv:
       case eLShift:
       case eRShift:
-        if (param_value[0]->get_type().eType == eVector) goto label;
+        if (param_value[0]->get_type().eType == eVector) {
+          // hijack outputs for vectors as its much simpler
+          // than using csmiths safe flags
+          if (CGOptions::avoid_signed_overflow()) {
+            std::string fname;
+            switch (eFunc) {
+              case eAdd:
+                fname = "safe_add";
+                break;
+              case eSub:
+                fname = "safe_sub";
+                break;
+              case eMul:
+                fname = "safe_mul";
+                break;
+              case eMod:
+                fname = "safe_mod";
+                break;
+              case eDiv:
+                fname = "safe_div";
+                break;
+              case eLShift:
+                fname = "safe_lshift";
+                break;
+              case eRShift:
+                fname = "safe_rshift";
+                break;
+              default:
+                fname = "safe_op";
+                break;
+            }
+
+            out << fname << "(";
+            param_value[0]->Output(out);
+            out << ", ";
+            param_value[1]->Output(out);
+            out << ")";
+            break;
+          } else {
+            goto label;
+          }
+        }
         if (CGOptions::avoid_signed_overflow()) {
           string fname = op_flags->to_string(eFunc);
           int id = SafeOpFlags::to_id(fname);
@@ -475,7 +517,52 @@ void FunctionInvocationBinary::indented_output(std::ostream &out,
       case eDiv:
       case eLShift:
       case eRShift:
-        if (param_value[0]->get_type().eType == eVector) goto label;
+        // again hijack vector outputs
+        if (param_value[0]->get_type().eType == eVector) {
+          if (CGOptions::avoid_signed_overflow()) {
+            std::string fname;
+            switch (eFunc) {
+              case eAdd:
+                fname = "safe_add";
+                break;
+              case eSub:
+                fname = "safe_sub";
+                break;
+              case eMul:
+                fname = "safe_mul";
+                break;
+              case eMod:
+                fname = "safe_mod";
+                break;
+              case eDiv:
+                fname = "safe_div";
+                break;
+              case eLShift:
+                fname = "safe_lshift";
+                break;
+              case eRShift:
+                fname = "safe_rshift";
+                break;
+              default:
+                fname = "safe_op";
+                break;
+            }
+
+            output_tab(out, indent);
+            out << fname;
+            outputln(out);
+            output_open_encloser("(", out, indent);
+            param_value[0]->indented_output(out, indent);
+            out << ", ";
+            outputln(out);
+            param_value[1]->indented_output(out, indent);
+            output_close_encloser(")", out, indent);
+            break;
+          } else {
+            goto label;
+          }
+        }
+        // ==========================================
         if (CGOptions::avoid_signed_overflow()) {
           output_tab(out, indent);
           out << op_flags->to_string(eFunc);

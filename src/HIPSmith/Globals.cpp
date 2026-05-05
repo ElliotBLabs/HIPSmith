@@ -78,15 +78,15 @@ void Globals::OutputStructInit(std::ostream &out) {
     }
 
     output_tab(out, 2);
-    
-    // This is a bit hacky as we have already rename this to be like "p_xxxx->" 
+
+    // This is a bit hacky as we have already rename this to be like "p_xxxx->"
     // but we need to strip this back out as the only time!q
     std::string raw_name = var->name;
     size_t arrow_pos = raw_name.find("->");
     if (arrow_pos != std::string::npos) {
       raw_name = raw_name.substr(arrow_pos + 2);
     }
-    
+
     // ends up being like .g_16 = {5,83,0xDE0184DCC80FC3A0LL,5070,-10,0},
     out << "." << raw_name << " = ";
 
@@ -101,7 +101,7 @@ void Globals::OutputStructInit(std::ostream &out) {
     } else {
       var->init->Output(out);
     }
-    
+
     out << "," << std::endl;
   }
 
@@ -237,7 +237,7 @@ void Globals::FixAllIndexing(Variable *var) {
   if (var->name.find("[") != std::string::npos) {
     FixStructArrays(var, var->name.find("["));
   }
-  // recurse into its fields and fix 
+  // recurse into its fields and fix
   for (Variable *field : var->field_vars) {
     FixAllIndexing(field);
   }
