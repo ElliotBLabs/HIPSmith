@@ -407,7 +407,6 @@ bool ArrayVariable::is_variant(const Variable* v) const {
 
 // --------------------------------------------------------------
 bool ArrayVariable::is_global(void) const { return parent == 0; }
-
 // -------------------------------------------------------------
 bool ArrayVariable::is_visible_local(const Block* blk) const {
   const Block* b = blk;
@@ -521,7 +520,9 @@ void ArrayVariable::OutputDecl(std::ostream& out) const {
   if (CGOptions::force_globals_static() && is_global()) {
     out << "static ";
   }
+
   output_qualified_type(out);
+
   out << get_actual_name();
   size_t i;
   for (i = 0; i < sizes.size(); i++) {
