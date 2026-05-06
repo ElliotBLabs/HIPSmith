@@ -16,7 +16,6 @@
 #include "FunctionInvocationUnary.h"
 #include "HIPSmith/ExpressionVector.h"
 #include "HIPSmith/HIPExpression.h"
-#include "HIPSmith/Walker.h"
 #include "Statement.h"
 #include "StatementArrayOp.h"
 #include "StatementAssign.h"
