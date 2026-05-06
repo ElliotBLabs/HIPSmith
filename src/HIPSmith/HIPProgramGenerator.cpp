@@ -25,6 +25,15 @@ void HIPProgramGenerator::goGenerator() {
   HIPExpression::InitProbabilityTable();
   Vector::GenerateVectorTypes();
   GenerateAllTypes();
+  // generate global constant memory
+  // if (HIPOptions::hip_constant_memory()) {
+
+  int num_consts = rnd_upto(4) + 1;
+  for (int i = 0; i < num_consts; i++) {
+    VariableSelector::GenerateHIPGlobalConstant(CGContext::get_empty_context());
+  }
+  //}
+  reset_gensym();
   GenerateFunctions();
   output_mgr_->Output();
 }

@@ -491,12 +491,16 @@ Variable::~Variable(void) {
   delete init;
 }
 
+bool Variable::is_hip_global_const(void) const {
+  return (name.find("hip_const_") == 0);
+}
+
 // --------------------------------------------------------------
 bool Variable::is_global(void) const {
   if (is_field_var()) {
     return field_var_of->is_global();
   }
-  return (name.find("g_") == 0);
+  return (name.find("g_") == 0 || is_hip_global_const());
 }
 
 bool Variable::is_local(void) const { return (name.find("l_") == 0); }
@@ -538,7 +542,9 @@ bool Variable::is_tmp_var(void) const {
   return (name.find("t") == 0);
 }
 
-bool Variable::is_const(void) const { return is_const_after_deref(0); }
+bool Variable::is_const(void) const {
+  return is_hip_global_const() || is_const_after_deref(0);
+}
 
 bool Variable::is_volatile(void) const { return is_volatile_after_deref(0); }
 
@@ -698,7 +704,9 @@ void Variable::OutputDecl(std::ostream& out) const {
   if (CGOptions::force_globals_static() && is_global()) {
     out << "static ";
   }
+
   output_qualified_type(out);
+
   out << get_actual_name();
 }
 

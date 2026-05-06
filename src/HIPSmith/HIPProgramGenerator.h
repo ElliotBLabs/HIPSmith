@@ -31,6 +31,9 @@ class HIPProgramGenerator : public AbsProgramGenerator {
   // not needed
   void initialize();
 
+  // Generate the constant memory structures and values early
+  void GenerateConstantMemory();
+
  private:
   std::unique_ptr<OutputMgr> output_mgr_;
 

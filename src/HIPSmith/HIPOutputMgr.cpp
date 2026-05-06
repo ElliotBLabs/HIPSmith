@@ -13,8 +13,7 @@
 
 namespace HIPSmith {
 
-HIPOutputMgr::HIPOutputMgr()
-    : out_(HIPOptions::output()), orig_out_("HIP-CCProg.cc") {}
+HIPOutputMgr::HIPOutputMgr() : out_(HIPOptions::output()) {}
 
 void HIPOutputMgr::OutputHeader(int argc, char *argv[], unsigned long seed) {
   std::ostream &out = get_main_out();
@@ -59,13 +58,89 @@ void HIPOutputMgr::OutputHeader(int argc, char *argv[], unsigned long seed) {
 }
 
 void HIPOutputMgr::Output() {
-  OutputOriginal();
   // now will emit device coded functions
   HIPOptions::is_emitting_device_code(true);
 
   std::ostream &out = get_main_out();
 
   OutputStructUnionDeclarations(out);
+  // --- NEW: Explicitly Print Constant Declarations ---
+  //   if (HIPOptions::hip_constant_memory()) {
+  out << "// "
+         "------------------------------------------------------------------\n";
+  out << "// Constant Memory Declarations\n";
+  out << "// "
+         "------------------------------------------------------------------\n";
+  for (Variable *var : *VariableSelector::GetGlobalVariables()) {
+    if (!var->is_hip_global_const()) continue;
+
+    // Filter out Csmith's duplicate itemized arrays
+    if (var->isArray) {
+      ArrayVariable *av = dynamic_cast<ArrayVariable *>(var);
+      if (av && !av->collective) continue;
+    }
+
+    out << "__constant__ ";
+    var->OutputDecl(out);  // Emits just the type, name, and array brackets
+    out << ";" << std::endl;
+  }
+  out << std::endl;
+  //   }
+
+  //   if (HIPOptions::hip_constant_memory()) {
+  out << "// ------------------------------------------------------------------"
+      << std::endl;
+  out << "// Constant Memory Setup" << std::endl;
+  out << "// ------------------------------------------------------------------"
+      << std::endl;
+  out << "void setup_hip_constants() {" << std::endl;
+
+  for (Variable *var : *VariableSelector::GetGlobalVariables()) {
+    // 1. Skip non-HIP constants
+    if (!var->is_hip_global_const()) continue;
+
+    // 2. Filter out Csmith's duplicate itemized arrays
+    if (var->isArray) {
+      ArrayVariable *av = dynamic_cast<ArrayVariable *>(var);
+      if (av && !av->collective) continue;
+    }
+
+    output_tab(out, 2);
+
+    // 3. Intercept the native declaration to build standard C arrays natively
+    std::ostringstream oss;
+    var->OutputDecl(oss);  // Yields e.g., "const uint8_t hip_const_1[7]"
+    std::string decl_str = oss.str();
+
+    // Safely swap the device name for the host name
+    size_t pos = decl_str.find(var->name);
+    if (pos != std::string::npos) {
+      decl_str.replace(pos, var->name.length(), "host_" + var->name);
+    }
+    out << decl_str << " = ";
+
+    // 4. Output the initializer values
+    if (var->isArray) {
+      ArrayVariable *var_array = dynamic_cast<ArrayVariable *>(var);
+      std::vector<std::string> init_strings;
+      init_strings.push_back(var_array->init->to_string());
+      for (const Expression *init : var_array->get_more_init_values()) {
+        init_strings.push_back(init->to_string());
+      }
+      out << var_array->build_initializer_str(init_strings);
+    } else {
+      var->init->Output(out);
+    }
+    out << ";" << std::endl;
+
+    // 5. Official HIP API Memcpys
+
+    output_tab(out, 2);
+    out << "HIP_CHECK(hipMemcpyToSymbol(" << var->name << ", &host_"
+        << var->name << ", sizeof(host_" << var->name << ")));" << std::endl;
+  }
+  out << "}" << std::endl << std::endl;
+  //   }
 
   Globals *globals = Globals::GetGlobals();
   globals->OutputStructDefinition(out);
@@ -152,6 +227,11 @@ void HIPOutputMgr::OutputEntryFunction(Globals &globals) {
       << std::endl;
   out << std::endl;
 
+  //   if (HIPOptions::hip_constant_memory()) {
+  output_tab(out, 1);
+  out << "setup_hip_constants();" << std::endl;
+  out << std::endl;
+  //   }
   output_tab(out, 1);
   out << "// Device Alloc" << std::endl;
   output_tab(out, 1);
@@ -207,64 +287,6 @@ void HIPOutputMgr::OutputEntryFunction(Globals &globals) {
   output_tab(out, 1);
   out << "}" << std::endl;
 
-  output_tab(out, 1);
-  out << "return 0;" << std::endl;
-  out << "}" << std::endl;
-}
-
-void HIPOutputMgr::OutputOriginal() {
-  std::ostream &out = orig_out_;
-
-  out << "// "
-         "------------------------------------------------------------------\n"
-      << "// Standard Headers\n"
-      << "// "
-         "------------------------------------------------------------------\n"
-      << "#include <cstdint>\n"
-      << "#include <cstddef>\n"
-      << "#include <climits>\n"
-      << "#include <cstring>\n"
-      << "#include <iostream>\n\n"
-      << "// "
-         "------------------------------------------------------------------\n"
-      << "// Project Headers\n"
-      << "// "
-         "------------------------------------------------------------------\n"
-      << "#include \"csmith.h\"\n"
-      << "#include \"safe_math_macros.h\"\n\n"
-      << "#define uint8_t unsigned char\n"
-      << "#define int8_t char\n"
-      << "// "
-         "------------------------------------------------------------------\n"
-      << "// Macros & Metadata\n"
-      << "// "
-         "------------------------------------------------------------------\n"
-      << "#define transparent_crc(X, Y, Z) transparent_crc_(&crc64_context, X, "
-         "Y, Z)\n";
-
-  OutputStructUnionDeclarations(out);
-  OutputGlobalVariables(out);
-  OutputForwardDeclarations(out);
-  OutputFunctions(out);
-
-  // 5. Standard Main
-  out << "int main(void) {" << std::endl;
-  output_tab(out, 1);
-  out << "func_1();" << std::endl;  // Standard entry
-  output_tab(out, 1);
-  out << "// CRC Context" << std::endl;
-  output_tab(out, 1);
-  out << "uint64_t crc64_context = 0xFFFFFFFFFFFFFFFFUL;" << std::endl;
-  output_tab(out, 1);
-  out << "int print_hash_value = 0;" << std::endl;
-  output_tab(out, 1);
-  out << "// Hash variables" << std::endl;
-  HashGlobalVariables(out);
-  out << std::endl;
-  output_tab(out, 1);
-
-  out << "std::cout <<  (crc64_context ^ 0xFFFFFFFFFFFFFFFFUL) << std::endl;"
-      << std::endl;
   output_tab(out, 1);
   out << "return 0;" << std::endl;
   out << "}" << std::endl;

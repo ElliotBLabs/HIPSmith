@@ -13,6 +13,7 @@ class HIPOptions {
   // safe_math                - should safe math methods be used
   // small                    - restrict the output to be a smaller program
   // is_emitting_device_code  - are currently writing hip code not cpp code
+  // hip_consts               - generate global read only HIP constants
 
 #define DEFINE_HIPFLAG(name, type) \
  private:                          \
@@ -27,6 +28,7 @@ class HIPOptions {
   DEFINE_HIPFLAG(small, bool)
   DEFINE_HIPFLAG(is_emitting_device_code, bool)
   DEFINE_HIPFLAG(vectors, bool)
+  DEFINE_HIPFLAG(hip_consts, bool)
 #undef DEFINE_HIPFLAG
 
   static void set_default_settings();

@@ -267,8 +267,6 @@ bool VariableSelector::is_eligible_var(const Variable* var, int deref_level,
     return false;
   }
   // ISSUE: generating correct C programs.
-  //
-  // We cannot write `const' variables.
   if ((access == Effect::WRITE) && is_const) {
     return false;
   }
@@ -584,6 +582,53 @@ Variable* VariableSelector::GenerateNewNonArrayGlobal(
     GlobalNonvolatilesList.push_back(var);
   }
   var_created = true;
+  return var;
+}
+
+Variable* VariableSelector::GenerateHIPGlobalConstant(
+    const CGContext& cg_context) {
+  ERROR_GUARD(NULL);
+
+  // even though this will be a const in our eyes we dont want to confuse
+  // csmith internals by using the constant qualifier
+  CVQualifiers var_qfer;
+  var_qfer.add_qualifiers(false, false);
+
+  // naming convention will be hip_const_***
+  string name = gensym("hip_const_");
+  tmp_count++;
+
+  // pick a random type
+  const Type* t = 0;
+  do {
+    t = Type::choose_random_nonvoid_nonvolatile();
+    ERROR_GUARD(NULL);
+    // we have to rejection unions??????? FIX
+  } while (t->eType == eUnion || !cg_context.accept_type(t));
+
+  // init as a constant would be
+  const Expression* init = Constant::make_random(t);
+  Variable* var = NULL;
+
+  if (rnd_flipcoin(NewArrayVariableProb)) {
+    var = create_array_and_itemize(NULL, name, cg_context, t, init, &var_qfer);
+  } else {
+    var = new_variable(name, t, init, &var_qfer);
+  }
+  assert(var);
+
+  GlobalList.push_back(var);
+
+  FactMgr* fm = get_fact_mgr(&cg_context);
+  fm->add_new_var_fact_and_update_inout_maps(NULL, var->get_collective());
+
+  if (cg_context.get_current_func()) {
+    cg_context.get_current_func()->new_globals.push_back(var);
+  }
+
+  GlobalNonvolatilesList.push_back(var);
+  var_created = true;
+
   return var;
 }
 
