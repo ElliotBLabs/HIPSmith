@@ -63,7 +63,7 @@ class VariableSelector {
   static Variable* new_variable(const std::string& name, const Type* type,
                                 const Expression* init,
                                 const CVQualifiers* qfer);
-  static Variable* GenerateHIPGlobalConstant(const CGContext& cg_context);
+  static Variable* GenerateHIPConstant(const CGContext& cg_context);
   // ISSUE: use it only when you want to create a static variable
   static Variable* make_dummy_static_variable(const string& name);
 
