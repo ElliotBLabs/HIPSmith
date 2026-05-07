@@ -10,6 +10,7 @@
 
 #include "Function.h"
 #include "HIPSmith/HIPExpression.h"
+#include "HIPSmith/HIPOptions.h"
 #include "HIPSmith/Vector.h"
 #include "Type.h"
 
@@ -25,15 +26,9 @@ void HIPProgramGenerator::goGenerator() {
   HIPExpression::InitProbabilityTable();
   Vector::GenerateVectorTypes();
   GenerateAllTypes();
-  // generate global constant memory
-  // if (HIPOptions::hip_constant_memory()) {
 
-  int num_consts = rnd_upto(4) + 1;
-  for (int i = 0; i < num_consts; i++) {
-    VariableSelector::GenerateHIPGlobalConstant(CGContext::get_empty_context());
-  }
-  //}
-  reset_gensym();
+  GenerateHIPConstants();
+  
   GenerateFunctions();
   output_mgr_->Output();
 }
@@ -46,5 +41,17 @@ std::string HIPProgramGenerator::get_count_prefix(const std::string& name) {
 }
 
 void HIPProgramGenerator::initialize() {}
+
+void HIPProgramGenerator::GenerateHIPConstants() {
+  if (!HIPSmith::HIPOptions::hip_consts()) return;
+
+  int num_consts = rnd_upto(4) + 1;
+  for (int i = 0; i < num_consts; i++) {
+    VariableSelector::GenerateHIPGlobalConstant(CGContext::get_empty_context());
+  }
+
+  // csmith didnt expect anything to be generated before this so reset its symbol generator
+  reset_gensym();
+}
 
 }  // namespace HIPSmith
