@@ -90,7 +90,7 @@ void HIPOutputMgr::OutputHipConsts() {
   out << "// "
          "------------------------------------------------------------------\n";
   for (Variable *var : *VariableSelector::GetGlobalVariables()) {
-    if (!var->is_hip_global_const()) continue;
+    if (!var->is_hip_const()) continue;
 
     // skip csmiths duplicate itemised arrays
     if (var->isArray) {
@@ -115,7 +115,7 @@ void HIPOutputMgr::OutputHipConsts() {
 
   for (Variable *var : *VariableSelector::GetGlobalVariables()) {
     // skip other global vars that arent hip consts
-    if (!var->is_hip_global_const()) continue;
+    if (!var->is_hip_const()) continue;
 
     // do not use duplicated itemized arrays
     if (var->isArray) {

@@ -585,7 +585,7 @@ Variable* VariableSelector::GenerateNewNonArrayGlobal(
   return var;
 }
 
-Variable* VariableSelector::GenerateHIPGlobalConstant(
+Variable* VariableSelector::GenerateHIPConstant(
     const CGContext& cg_context) {
   ERROR_GUARD(NULL);
 
@@ -603,8 +603,7 @@ Variable* VariableSelector::GenerateHIPGlobalConstant(
   do {
     t = Type::choose_random_nonvoid_nonvolatile();
     ERROR_GUARD(NULL);
-    // we have to rejection unions??????? FIX
-  } while (t->eType == eUnion || !cg_context.accept_type(t));
+  } while (!cg_context.accept_type(t));
 
   // init as a constant would be
   const Expression* init = Constant::make_random(t);

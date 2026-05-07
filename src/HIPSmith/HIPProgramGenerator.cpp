@@ -47,7 +47,7 @@ void HIPProgramGenerator::GenerateHIPConstants() {
 
   int num_consts = rnd_upto(4) + 1;
   for (int i = 0; i < num_consts; i++) {
-    VariableSelector::GenerateHIPGlobalConstant(CGContext::get_empty_context());
+    VariableSelector::GenerateHIPConstant(CGContext::get_empty_context());
   }
 
   // csmith didnt expect anything to be generated before this so reset its symbol generator
