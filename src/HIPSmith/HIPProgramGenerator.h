@@ -38,6 +38,8 @@ class HIPProgramGenerator : public AbsProgramGenerator {
   std::unique_ptr<OutputMgr> output_mgr_;
 
   unsigned long seed_;
+
+  void GenerateHIPConstants();
 };
 
 }  // namespace HIPSmith

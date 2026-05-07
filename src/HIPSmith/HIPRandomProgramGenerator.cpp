@@ -21,9 +21,13 @@ int main(int argc, char **argv) {
   HIPSmith::HIPOptions::ResolveCGOptions();
 
   for (int idx = 1; idx < argc; ++idx) {
-    // 1. Toggle Flag
     if (strcmp(argv[idx], "--vectors") == 0) {
       HIPSmith::HIPOptions::vectors(true);
+      continue;
+    }
+
+    if (strcmp(argv[idx], "--hip-consts") == 0) {
+      HIPSmith::HIPOptions::hip_consts(true);
       continue;
     }
 

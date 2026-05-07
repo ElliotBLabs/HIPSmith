@@ -34,6 +34,9 @@ class HIPOutputMgr : public OutputMgr {
   // Outputs the main function that invokes the random program and reports back
   // a hash of the output
   void OutputEntryFunction(Globals &globals);
+
+  // will output HIP global constants if they are being generated
+  void OutputHipConsts();
 };
 
 }  // namespace HIPSmith

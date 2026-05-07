@@ -64,8 +64,26 @@ void HIPOutputMgr::Output() {
   std::ostream &out = get_main_out();
 
   OutputStructUnionDeclarations(out);
-  // --- NEW: Explicitly Print Constant Declarations ---
-  //   if (HIPOptions::hip_constant_memory()) {
+
+  OutputHipConsts();
+
+  Globals *globals = Globals::GetGlobals();
+  globals->OutputStructDefinition(out);
+  globals->ModifyGlobalVariableReferences();
+  globals->AddGlobalStructToAllFunctions();
+
+  OutputForwardDeclarations(out);
+  OutputFunctions(out);
+  OutputEntryFunction(*globals);
+}
+
+std::ostream &HIPOutputMgr::get_main_out() { return out_; }
+
+void HIPOutputMgr::OutputHipConsts() {
+   // got to be turned on 
+   if (!HIPSmith::HIPOptions::hip_consts()) return;
+
+   std::ostream &out = get_main_out();
   out << "// "
          "------------------------------------------------------------------\n";
   out << "// Constant Memory Declarations\n";
@@ -74,20 +92,20 @@ void HIPOutputMgr::Output() {
   for (Variable *var : *VariableSelector::GetGlobalVariables()) {
     if (!var->is_hip_global_const()) continue;
 
-    // Filter out Csmith's duplicate itemized arrays
+    // skip csmiths duplicate itemised arrays
     if (var->isArray) {
       ArrayVariable *av = dynamic_cast<ArrayVariable *>(var);
       if (av && !av->collective) continue;
     }
 
+    // output the global defintion of the variable
     out << "__constant__ ";
-    var->OutputDecl(out);  // Emits just the type, name, and array brackets
+    var->OutputDecl(out); 
     out << ";" << std::endl;
   }
   out << std::endl;
-  //   }
+  
 
-  //   if (HIPOptions::hip_constant_memory()) {
   out << "// ------------------------------------------------------------------"
       << std::endl;
   out << "// Constant Memory Setup" << std::endl;
@@ -96,10 +114,10 @@ void HIPOutputMgr::Output() {
   out << "void setup_hip_constants() {" << std::endl;
 
   for (Variable *var : *VariableSelector::GetGlobalVariables()) {
-    // 1. Skip non-HIP constants
+    // skip other global vars that arent hip consts
     if (!var->is_hip_global_const()) continue;
 
-    // 2. Filter out Csmith's duplicate itemized arrays
+    // do not use duplicated itemized arrays
     if (var->isArray) {
       ArrayVariable *av = dynamic_cast<ArrayVariable *>(var);
       if (av && !av->collective) continue;
@@ -107,19 +125,19 @@ void HIPOutputMgr::Output() {
 
     output_tab(out, 2);
 
-    // 3. Intercept the native declaration to build standard C arrays natively
+    // output a host version of the varaible that will then be copied to device
     std::ostringstream oss;
-    var->OutputDecl(oss);  // Yields e.g., "const uint8_t hip_const_1[7]"
+    var->OutputDecl(oss); 
     std::string decl_str = oss.str();
 
-    // Safely swap the device name for the host name
+    // swap the actual name to a special host version
     size_t pos = decl_str.find(var->name);
     if (pos != std::string::npos) {
       decl_str.replace(pos, var->name.length(), "host_" + var->name);
     }
     out << decl_str << " = ";
 
-    // 4. Output the initializer values
+    // initialiser for the var
     if (var->isArray) {
       ArrayVariable *var_array = dynamic_cast<ArrayVariable *>(var);
       std::vector<std::string> init_strings;
@@ -133,26 +151,14 @@ void HIPOutputMgr::Output() {
     }
     out << ";" << std::endl;
 
-    // 5. Official HIP API Memcpys
-
+    // copy from host to device
     output_tab(out, 2);
     out << "HIP_CHECK(hipMemcpyToSymbol(" << var->name << ", &host_"
         << var->name << ", sizeof(host_" << var->name << ")));" << std::endl;
   }
   out << "}" << std::endl << std::endl;
-  //   }
-
-  Globals *globals = Globals::GetGlobals();
-  globals->OutputStructDefinition(out);
-  globals->ModifyGlobalVariableReferences();
-  globals->AddGlobalStructToAllFunctions();
-
-  OutputForwardDeclarations(out);
-  OutputFunctions(out);
-  OutputEntryFunction(*globals);
+  
 }
-
-std::ostream &HIPOutputMgr::get_main_out() { return out_; }
 
 void HIPOutputMgr::OutputEntryFunction(Globals &globals) {
   std::ostream &out = get_main_out();
@@ -227,11 +233,11 @@ void HIPOutputMgr::OutputEntryFunction(Globals &globals) {
       << std::endl;
   out << std::endl;
 
-  //   if (HIPOptions::hip_constant_memory()) {
+  if (HIPSmith::HIPOptions::hip_consts()) {
   output_tab(out, 1);
   out << "setup_hip_constants();" << std::endl;
   out << std::endl;
-  //   }
+  }
   output_tab(out, 1);
   out << "// Device Alloc" << std::endl;
   output_tab(out, 1);
