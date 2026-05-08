@@ -11,10 +11,11 @@ ERROR_LOG = "error_summary.log"
 
 # Get the absolute path to HIPSmith so it can be called from temporary directories
 HIPSMITH_PATH = os.path.abspath("./HIPSmith")
+ROOT_DIR = os.path.abspath(".")
 
 # The compilation command as a list of arguments
 COMPILE_CMD = [
-    "hipcc", "-x", "hip", "HIPProg.hip", "-I", os.path.abspath("."),
+    "hipcc", "-x", "hip", "HIP-driver.cpp", "HIPProg.hip", "-I", ROOT_DIR,
     "-Werror=uninitialized", "-Werror=missing-field-initializers",
     "-Werror=array-bounds", "-Werror=zero-length-array",
     "-fno-strict-aliasing", "-Wno-c++11-narrowing", "-Wno-unused-value",
@@ -26,7 +27,7 @@ def run_fuzz_iteration(i):
     with tempfile.TemporaryDirectory() as tmpdir:
         # 1. Generate the HIP program
         try:
-            gen_proc = subprocess.run([HIPSMITH_PATH, "--vectors"], 
+            gen_proc = subprocess.run([HIPSMITH_PATH, "--vectors", "--hip-consts"], 
                                       cwd=tmpdir, 
                                       stdout=subprocess.DEVNULL, 
                                       stderr=subprocess.DEVNULL)

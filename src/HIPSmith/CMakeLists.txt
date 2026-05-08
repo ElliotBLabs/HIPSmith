@@ -270,7 +270,7 @@ configure_file(
 )
 
 configure_file(
-    "${CMAKE_SOURCE_DIR}/scripts/test_hipsmith.py"
-    "${CMAKE_BINARY_DIR}/test_hipsmith.py"
+    "${CMAKE_SOURCE_DIR}/scripts/GenerateHIPConstant.py"
+    "${CMAKE_BINARY_DIR}/GenerateHIPConstant.py"
     COPYONLY
 )
