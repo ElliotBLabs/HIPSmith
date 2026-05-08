@@ -80,10 +80,10 @@ void HIPOutputMgr::Output() {
 std::ostream &HIPOutputMgr::get_main_out() { return out_; }
 
 void HIPOutputMgr::OutputHipConsts() {
-   // got to be turned on 
-   if (!HIPSmith::HIPOptions::hip_consts()) return;
+  // got to be turned on
+  if (!HIPSmith::HIPOptions::hip_consts()) return;
 
-   std::ostream &out = get_main_out();
+  std::ostream &out = get_main_out();
   out << "// "
          "------------------------------------------------------------------\n";
   out << "// Constant Memory Declarations\n";
@@ -100,11 +100,10 @@ void HIPOutputMgr::OutputHipConsts() {
 
     // output the global defintion of the variable
     out << "__constant__ ";
-    var->OutputDecl(out); 
+    var->OutputDecl(out);
     out << ";" << std::endl;
   }
   out << std::endl;
-  
 
   out << "// ------------------------------------------------------------------"
       << std::endl;
@@ -127,7 +126,7 @@ void HIPOutputMgr::OutputHipConsts() {
 
     // output a host version of the varaible that will then be copied to device
     std::ostringstream oss;
-    var->OutputDecl(oss); 
+    var->OutputDecl(oss);
     std::string decl_str = oss.str();
 
     // swap the actual name to a special host version
@@ -157,7 +156,6 @@ void HIPOutputMgr::OutputHipConsts() {
         << var->name << ", sizeof(host_" << var->name << ")));" << std::endl;
   }
   out << "}" << std::endl << std::endl;
-  
 }
 
 void HIPOutputMgr::OutputEntryFunction(Globals &globals) {
@@ -207,94 +205,116 @@ void HIPOutputMgr::OutputEntryFunction(Globals &globals) {
   out << "}" << std::endl << std::endl;
 
   // ---------------------------------------------------------
-  // Generated Main
+  // Generated Main in its own file
   // ---------------------------------------------------------
-  out << "// ------------------------------------------------------------------"
-      << std::endl;
-  out << "// Host Main" << std::endl;
-  out << "// ------------------------------------------------------------------"
-      << std::endl;
-  out << "int main(int argc, const char* argv[]) {" << std::endl;
-
-  output_tab(out, 1);
-  out << "// Config" << std::endl;
-  output_tab(out, 1);
-  out << "const unsigned int num_threads = 4;" << std::endl;
-  output_tab(out, 1);
-  out << "const unsigned int block_size = 4;" << std::endl;
-  out << std::endl;
-
-  output_tab(out, 1);
-  out << "// Host Alloc" << std::endl;
-  output_tab(out, 1);
-  out << "std::vector<uint64_t> h_results(num_threads);" << std::endl;
-  output_tab(out, 1);
-  out << "const size_t results_bytes = sizeof(uint64_t) * h_results.size();"
-      << std::endl;
-  out << std::endl;
+  std::ofstream driver_out("HIP-driver.cpp");
+  driver_out
+      << "// "
+         "------------------------------------------------------------------\n"
+      << "// Host Main\n"
+      << "// "
+         "------------------------------------------------------------------\n"
+      << "#include <hip/hip_runtime.h>\n"
+      << "#include <iostream>\n"
+      << "#include <cstdint>\n"
+      << "#include <cstdio>\n"
+      << "#include <vector>\n"
+      << "#include \"HIPSmith.h\"\n"
+      << "#include \"safe_math_macros.h\"\n\n"
+      << "extern __global__ void hipsmith_kernel(uint64_t *results);\n";
 
   if (HIPSmith::HIPOptions::hip_consts()) {
-  output_tab(out, 1);
-  out << "setup_hip_constants();" << std::endl;
-  out << std::endl;
+    driver_out << "extern void setup_hip_constants();\n";
   }
-  output_tab(out, 1);
-  out << "// Device Alloc" << std::endl;
-  output_tab(out, 1);
-  out << "uint64_t *d_results;" << std::endl;
-  output_tab(out, 1);
-  out << "HIP_CHECK(hipMalloc((void**)&d_results, results_bytes));"
-      << std::endl;
-  output_tab(out, 1);
-  out << "HIP_CHECK(hipMemset(d_results, 0, results_bytes));" << std::endl;
-  out << std::endl;
 
-  output_tab(out, 1);
-  out << "// Dimensions" << std::endl;
-  output_tab(out, 1);
-  out << "const dim3 block_dim(block_size);" << std::endl;
-  output_tab(out, 1);
-  out << "const dim3 grid_dim((num_threads + block_size - 1) / block_size);"
-      << std::endl;
-  out << std::endl;
+  driver_out << "\nint main(int argc, const char* argv[]) {\n";
 
-  output_tab(out, 1);
-  out << "// Launch" << std::endl;
-  output_tab(out, 1);
-  out << "hipLaunchKernelGGL(hipsmith_kernel, grid_dim, block_dim, 0, 0, "
+  output_tab(driver_out, 1);
+  driver_out << "// Config" << std::endl;
+  output_tab(driver_out, 1);
+  driver_out << "const unsigned int num_threads = 4;" << std::endl;
+  output_tab(driver_out, 1);
+  driver_out << "const unsigned int block_size = 4;" << std::endl;
+  driver_out << std::endl;
+
+  output_tab(driver_out, 1);
+  driver_out << "// Host Alloc" << std::endl;
+  output_tab(driver_out, 1);
+  driver_out << "std::vector<uint64_t> h_results(num_threads);" << std::endl;
+  output_tab(driver_out, 1);
+  driver_out
+      << "const size_t results_bytes = sizeof(uint64_t) * h_results.size();"
+      << std::endl;
+  driver_out << std::endl;
+
+  if (HIPSmith::HIPOptions::hip_consts()) {
+    output_tab(driver_out, 1);
+    driver_out << "setup_hip_constants();" << std::endl;
+    driver_out << std::endl;
+  }
+
+  output_tab(driver_out, 1);
+  driver_out << "// Device Alloc" << std::endl;
+  output_tab(driver_out, 1);
+  driver_out << "uint64_t *d_results;" << std::endl;
+  output_tab(driver_out, 1);
+  driver_out << "HIP_CHECK(hipMalloc((void**)&d_results, results_bytes));"
+             << std::endl;
+  output_tab(driver_out, 1);
+  driver_out << "HIP_CHECK(hipMemset(d_results, 0, results_bytes));"
+             << std::endl;
+  driver_out << std::endl;
+
+  output_tab(driver_out, 1);
+  driver_out << "// Dimensions" << std::endl;
+  output_tab(driver_out, 1);
+  driver_out << "const dim3 block_dim(block_size);" << std::endl;
+  output_tab(driver_out, 1);
+  driver_out
+      << "const dim3 grid_dim((num_threads + block_size - 1) / block_size);"
+      << std::endl;
+  driver_out << std::endl;
+
+  output_tab(driver_out, 1);
+  driver_out << "// Launch" << std::endl;
+  output_tab(driver_out, 1);
+  driver_out
+      << "hipLaunchKernelGGL(hipsmith_kernel, grid_dim, block_dim, 0, 0, "
          "d_results);"
       << std::endl;
-  output_tab(out, 1);
-  out << "HIP_CHECK(hipGetLastError());" << std::endl;
-  output_tab(out, 1);
-  out << "HIP_CHECK(hipDeviceSynchronize());" << std::endl;
-  out << std::endl;
+  output_tab(driver_out, 1);
+  driver_out << "HIP_CHECK(hipGetLastError());" << std::endl;
+  output_tab(driver_out, 1);
+  driver_out << "HIP_CHECK(hipDeviceSynchronize());" << std::endl;
+  driver_out << std::endl;
 
-  output_tab(out, 1);
-  out << "// Copy Back" << std::endl;
-  output_tab(out, 1);
-  out << "HIP_CHECK(hipMemcpy(h_results.data(), d_results, results_bytes, "
+  output_tab(driver_out, 1);
+  driver_out << "// Copy Back" << std::endl;
+  output_tab(driver_out, 1);
+  driver_out
+      << "HIP_CHECK(hipMemcpy(h_results.data(), d_results, results_bytes, "
          "hipMemcpyDeviceToHost));"
       << std::endl;
-  out << std::endl;
+  driver_out << std::endl;
 
-  output_tab(out, 1);
-  out << "// Free" << std::endl;
-  output_tab(out, 1);
-  out << "HIP_CHECK(hipFree(d_results));" << std::endl;
-  out << std::endl;
+  output_tab(driver_out, 1);
+  driver_out << "// Free" << std::endl;
+  output_tab(driver_out, 1);
+  driver_out << "HIP_CHECK(hipFree(d_results));" << std::endl;
+  driver_out << std::endl;
 
-  output_tab(out, 1);
-  out << "// Output" << std::endl;
-  output_tab(out, 1);
-  out << "for (size_t i = 0; i < h_results.size(); ++i) {" << std::endl;
-  output_tab(out, 2);
-  out << "printf(\"Thread %zu CRC: %lu\\n\", i, h_results[i]);" << std::endl;
-  output_tab(out, 1);
-  out << "}" << std::endl;
+  output_tab(driver_out, 1);
+  driver_out << "// Output" << std::endl;
+  output_tab(driver_out, 1);
+  driver_out << "for (size_t i = 0; i < h_results.size(); ++i) {" << std::endl;
+  output_tab(driver_out, 2);
+  driver_out << "printf(\"Thread %zu CRC: %lu\\n\", i, h_results[i]);"
+             << std::endl;
+  output_tab(driver_out, 1);
+  driver_out << "}" << std::endl;
 
-  output_tab(out, 1);
-  out << "return 0;" << std::endl;
-  out << "}" << std::endl;
+  output_tab(driver_out, 1);
+  driver_out << "return 0;" << std::endl;
+  driver_out << "}" << std::endl;
 }
 }  // namespace HIPSmith

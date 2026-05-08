@@ -28,7 +28,7 @@ void HIPProgramGenerator::goGenerator() {
   GenerateAllTypes();
 
   GenerateHIPConstants();
-  
+
   GenerateFunctions();
   output_mgr_->Output();
 }
@@ -45,12 +45,15 @@ void HIPProgramGenerator::initialize() {}
 void HIPProgramGenerator::GenerateHIPConstants() {
   if (!HIPSmith::HIPOptions::hip_consts()) return;
 
-  int num_consts = rnd_upto(4) + 1;
+  int max_consts = 20;
+
+  int num_consts = rnd_upto(max_consts);
   for (int i = 0; i < num_consts; i++) {
     VariableSelector::GenerateHIPConstant(CGContext::get_empty_context());
   }
 
-  // csmith didnt expect anything to be generated before this so reset its symbol generator
+  // csmith didnt expect anything to be generated before this so reset its
+  // symbol generator
   reset_gensym();
 }
 
