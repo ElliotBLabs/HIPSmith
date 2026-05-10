@@ -358,9 +358,11 @@ void Variable::create_field_vars(const Type* type) {
     quals.set_const(is_const_var || quals.is_const());
     quals.set_volatile(is_vol_var || quals.is_volatile());
     bool isBitfield = type->is_bitfield(i);
+    // here if something has fields and its parent is in HIP shared memory then
+    // this should be also
     Variable* var = Variable::CreateVariable(
         ss.str(), type->fields[i], quals.get_consts(), quals.get_volatiles(),
-        false, false, false, isBitfield, this);
+        false, false, false, isBitfield, this, isHipShared);
     assert(var->qfer.sanity_check(var->type));
     field_vars.push_back(var);
   }
@@ -370,12 +372,13 @@ Variable* Variable::CreateVariable(const std::string& name, const Type* type,
                                    bool isConst, bool isVolatile, bool isAuto,
                                    bool isStatic, bool isRegister,
                                    bool isBitfield,
-                                   const Variable* isFieldVarOf) {
+                                   const Variable* isFieldVarOf,
+                                   bool isHipShared) {
   vector<bool> isConsts, isVolatiles;
   isConsts.push_back(isConst);
   isVolatiles.push_back(isVolatile);
   return CreateVariable(name, type, isConsts, isVolatiles, isAuto, isStatic,
-                        isRegister, isBitfield, isFieldVarOf);
+                        isRegister, isBitfield, isFieldVarOf, isHipShared);
 }
 
 Variable* Variable::CreateVariable(const std::string& name, const Type* type,
@@ -383,9 +386,11 @@ Variable* Variable::CreateVariable(const std::string& name, const Type* type,
                                    const vector<bool>& isVolatiles, bool isAuto,
                                    bool isStatic, bool isRegister,
                                    bool isBitfield,
-                                   const Variable* isFieldVarOf) {
-  Variable* var = new Variable(name, type, isConsts, isVolatiles, isAuto,
-                               isStatic, isRegister, isBitfield, isFieldVarOf);
+                                   const Variable* isFieldVarOf,
+                                   bool isHipShared) {
+  Variable* var =
+      new Variable(name, type, isConsts, isVolatiles, isAuto, isStatic,
+                   isRegister, isBitfield, isFieldVarOf, isHipShared);
   assert(type);
   if (type->eType == eSimple) assert(type->simple_type != eVoid);
 
@@ -403,7 +408,7 @@ Variable* Variable::CreateVariable(const std::string& name, const Type* type,
 
 Variable* Variable::CreateVariable(const std::string& name, const Type* type,
                                    const Expression* init,
-                                   const CVQualifiers* qfer) {
+                                   const CVQualifiers* qfer, bool isHipShared) {
   if (!Variable::var_attr_generate) {
     InitializeVariableAttributes();
     Variable::var_attr_generate = true;
@@ -411,7 +416,7 @@ Variable* Variable::CreateVariable(const std::string& name, const Type* type,
   assert(type);
   if (type->eType == eSimple) assert(type->simple_type != eVoid);
 
-  Variable* var = new Variable(name, type, init, qfer);
+  Variable* var = new Variable(name, type, init, qfer, isHipShared);
   if (type->is_aggregate()) {
     var->create_field_vars(type);
   }
@@ -426,12 +431,13 @@ Variable::Variable(const std::string& name, const Type* type,
                    const vector<bool>& isConsts,
                    const vector<bool>& isVolatiles, bool isAuto, bool isStatic,
                    bool isRegister, bool isBitfield,
-                   const Variable* isFieldVarOf)
+                   const Variable* isFieldVarOf, bool isHipShared)
     : name(name),
       type(type),
       init(0),
       isAuto(isAuto),
       isStatic(isStatic),
+      isHipShared(isHipShared),
       isRegister(isRegister),
       isBitfield_(isBitfield),
       isAddrTaken(false),
@@ -446,12 +452,14 @@ Variable::Variable(const std::string& name, const Type* type,
  *
  */
 Variable::Variable(const std::string& name, const Type* type,
-                   const Expression* init, const CVQualifiers* qfer)
+                   const Expression* init, const CVQualifiers* qfer,
+                   bool isHipShared)
     : name(name),
       type(type),
       init(init),
       isAuto(false),
       isStatic(false),
+      isHipShared(isHipShared),
       isRegister(false),
       isBitfield_(false),
       isAddrTaken(false),
@@ -464,12 +472,13 @@ Variable::Variable(const std::string& name, const Type* type,
 
 Variable::Variable(const std::string& name, const Type* type,
                    const Expression* init, const CVQualifiers* qfer,
-                   const Variable* isFieldVarOf, bool isArray)
+                   const Variable* isFieldVarOf, bool isArray, bool isHipShared)
     : name(name),
       type(type),
       init(init),
       isAuto(false),
       isStatic(false),
+      isHipShared(isHipShared),
       isRegister(false),
       isBitfield_(false),
       isAddrTaken(false),
@@ -680,22 +689,49 @@ const ArrayVariable* Variable::get_array(string& field) const {
 // --------------------------------------------------------------
 void Variable::OutputDef(std::ostream& out, int indent) const {
   output_tab(out, indent);
+
   // force global variables to be static if necessary
   if (CGOptions::force_globals_static() && is_global()) {
     out << "static ";
   }
+
+  if (this->isHipShared) {
+    out << "__shared__ ";
+  }
+
   output_qualified_type(out);
   out << get_actual_name();
   var_attr_generator.Output(out);
-  out << " = ";
-  assert(init);
-  init->Output(out);
-  out << ";";
-  if (is_volatile()) {
-    string comment = "VOLATILE GLOBAL " + get_actual_name();
-    output_comment_line(out, comment);
-  } else {
+
+  // init on the same line for a normal varaible
+  if (!this->isHipShared) {
+    out << " = ";
+    assert(init);
+    init->Output(out);
+    out << ";";
+
+    if (is_volatile()) {
+      string comment = "VOLATILE GLOBAL " + get_actual_name();
+      output_comment_line(out, comment);
+    } else {
+      outputln(out);
+    }
+  }
+  // for HIP shared memory we are forced to init on the next line
+  else {
+    out << ";";
     outputln(out);
+
+    if (init != NULL) {
+      output_tab(out, indent);
+      out << get_actual_name() << " = ";
+      init->Output(out);
+      out << ";";
+
+      // skip out volatile as not put volatile on local vars and shared HIP
+      // implies local var
+      outputln(out);
+    }
   }
 }
 
@@ -703,6 +739,10 @@ void Variable::OutputDecl(std::ostream& out) const {
   // force global variables to be static if necessary
   if (CGOptions::force_globals_static() && is_global()) {
     out << "static ";
+  }
+
+  if (this->isHipShared) {
+    out << "__shared__ ";
   }
 
   output_qualified_type(out);
@@ -790,7 +830,9 @@ std::vector<const Variable*>& Variable::new_ctrl_vars() {
     stringstream name_stream;
     name_stream << name;
     if (CGOptions::fresh_array_ctrl_var_names()) name_stream << ctrl_var_suffix;
-    Variable* v = new Variable(name_stream.str(), 0, 0, &dummy);
+    // control vars i.e. int i, j, k for use in a for loop control should not be
+    // HIP shared memory
+    Variable* v = new Variable(name_stream.str(), 0, 0, &dummy, false);
     assert(v);
     ctrl_vars->push_back(v);
     name++;

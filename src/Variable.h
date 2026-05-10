@@ -67,18 +67,18 @@ class Variable {
  public:
   static Variable* CreateVariable(const std::string& name, const Type* type,
                                   const Expression* init,
-                                  const CVQualifiers* qfer);
+                                  const CVQualifiers* qfer, bool isHipShared);
   static Variable* CreateVariable(const std::string& name, const Type* type,
                                   bool isConst, bool isVolatile, bool isAuto,
                                   bool isStatic, bool isRegister,
-                                  bool isBitfield,
-                                  const Variable* isFieldVarOf);
+                                  bool isBitfield, const Variable* isFieldVarOf,
+                                  bool isHipShared);
   static Variable* CreateVariable(const std::string& name, const Type* type,
                                   const vector<bool>& isConsts,
                                   const vector<bool>& isVolatiles, bool isAuto,
                                   bool isStatic, bool isRegister,
-                                  bool isBitfield,
-                                  const Variable* isFieldVarOf);
+                                  bool isBitfield, const Variable* isFieldVarOf,
+                                  bool isHipShared);
 
   static void doFinalization(void);
 
@@ -171,6 +171,7 @@ class Variable {
   const bool isAuto;
   // bool isExtern;
   const bool isStatic;
+  const bool isHipShared;
   const bool isRegister;
   const bool isBitfield_;  // expanded from a full-bitfield struct var
   bool isAddrTaken;
@@ -188,14 +189,14 @@ class Variable {
 
  private:
   Variable(const std::string& name, const Type* type, const Expression* init,
-           const CVQualifiers* qfer);
+           const CVQualifiers* qfer, bool isHipShared);
   Variable(const std::string& name, const Type* type, const Expression* init,
-           const CVQualifiers* qfer, const Variable* isFieldVarOf,
-           bool isArray);
+           const CVQualifiers* qfer, const Variable* isFieldVarOf, bool isArray,
+           bool isHipShared);
   Variable(const std::string& name, const Type* type,
            const vector<bool>& isConsts, const vector<bool>& isVolatiles,
            bool isAuto, bool isStatic, bool isRegister, bool isBitfield,
-           const Variable* isFieldVarOf);
+           const Variable* isFieldVarOf, bool isHipShared);
 
   static std::vector<const Variable*>& new_ctrl_vars(void);
   static std::vector<std::vector<const Variable*>*> ctrl_vars_vectors;

@@ -139,8 +139,10 @@ StatementArrayOp* StatementArrayOp::make_random_array_init(
   // JYTODO: initialize only field(s) of array members if they are of type
   // struct
   Block* b = cg_context.get_current_block()->random_parent_block();
-  Expression* init = VariableSelector::make_init_value(Effect::READ, cg_context,
-                                                       av->type, &av->qfer, b);
+  // array statements are only initialised using for loop initialisers
+  // as they are not static allow the use of address of HIP shared memory
+  Expression* init = VariableSelector::make_init_value(
+      Effect::READ, cg_context, av->type, &av->qfer, b, true);
   assert(init->visit_facts(fm->global_facts, cg_context));
   StatementArrayOp* sa = new StatementArrayOp(cg_context.get_current_block(),
                                               av, cvs, inits, incrs, init);

@@ -444,7 +444,8 @@ Function *Function::make_random_signature(const CGContext &cg_context,
                                                   cg_context, true)
                 : qfer->random_qualifiers(true, Effect::READ, cg_context);
   ERROR_GUARD(NULL);
-  f->rv = Variable::CreateVariable(rvname, type, NULL, &ret_qfer);
+  // Dummy RV which will never be HIP shared memory itself
+  f->rv = Variable::CreateVariable(rvname, type, NULL, &ret_qfer, false);
   GenerateParameterList(*f);
   FMList.push_back(new FactMgr(f));
   if (CGOptions::inline_function() && rnd_flipcoin(InlineFunctionProb))
@@ -478,7 +479,8 @@ Function *Function::make_first(void) {
   f->alias_name = f->name + "_alias";
   CVQualifiers ret_qfer = CVQualifiers::random_qualifiers(ty);
   ERROR_GUARD(NULL);
-  f->rv = Variable::CreateVariable(rvname, ty, NULL, &ret_qfer);
+  // Dummy RV which will never be HIP shared memory itself
+  f->rv = Variable::CreateVariable(rvname, ty, NULL, &ret_qfer, false);
 
   // create a fact manager for this function, with empty global facts
   FactMgr *fm = new FactMgr(f);
@@ -775,7 +777,8 @@ void Function::make_builtin_function(const string &function_string) {
   // so use 0
   string rvname = f->name + "_" + "rv";
   CVQualifiers ret_qfer = CVQualifiers::random_qualifiers(ty);
-  f->rv = Variable::CreateVariable(rvname, ty, NULL, &ret_qfer);
+  // Dummy RV which will never be HIP shared memory itself
+  f->rv = Variable::CreateVariable(rvname, ty, NULL, &ret_qfer, false);
 
   // create a fact manager for this function, with empty global facts
   FactMgr *fm = new FactMgr(f);

@@ -62,7 +62,7 @@ class VariableSelector {
   VariableSelector(void) {};
   static Variable* new_variable(const std::string& name, const Type* type,
                                 const Expression* init,
-                                const CVQualifiers* qfer);
+                                const CVQualifiers* qfer, bool isHipShared);
   static Variable* GenerateHIPConstant(const CGContext& cg_context);
   // ISSUE: use it only when you want to create a static variable
   static Variable* make_dummy_static_variable(const string& name);
@@ -81,7 +81,8 @@ class VariableSelector {
                               const CVQualifiers* qfer, eMatchType mt,
                               const vector<const Variable*>& invalid_vars,
                               bool no_bitfield = false,
-                              bool no_expand_struct = false);
+                              bool no_expand_struct = false,
+                              bool allow_hip_shared_address = true);
   static Variable* select_deref_pointer(
       Effect::Access access, const CGContext& cg_context, const Type* type,
       const CVQualifiers* qfer, const vector<const Variable*>& invalid_vars);
@@ -93,7 +94,8 @@ class VariableSelector {
 
   static Expression* make_init_value(Effect::Access access,
                                      const CGContext& cg_context, const Type* t,
-                                     const CVQualifiers* qfer, Block* b);
+                                     const CVQualifiers* qfer, Block* b,
+                                     bool allow_hip_shared_address = false);
   static ArrayVariable* create_mutated_array_var(
       const ArrayVariable* av, const vector<const Expression*>& new_indices);
   static const Variable* select_must_use_var(Effect::Access access,
@@ -130,13 +132,13 @@ class VariableSelector {
   static const Variable* find_var_by_name(string name);
 
  private:
-  static ArrayVariable* create_array_and_itemize(Block* blk, string name,
-                                                 const CGContext& cg_context,
-                                                 const Type* t,
-                                                 const Expression* init,
-                                                 const CVQualifiers* qfer);
+  static bool has_hip_shared_ancestor(const Variable* v);
+  static ArrayVariable* create_array_and_itemize(
+      Block* blk, string name, const CGContext& cg_context, const Type* t,
+      const Expression* init, const CVQualifiers* qfer, bool isHipShared);
 
-  static ArrayVariable* create_random_array(const CGContext& cg_context);
+  static ArrayVariable* create_random_array(const CGContext& cg_context,
+                                            bool isHipShared);
 
   static Variable* eager_create_global_struct(
       Effect::Access access, const CGContext& cg_context, const Type* type,
@@ -180,7 +182,8 @@ class VariableSelector {
   static Variable* GenerateNewParentLocal(Block& block, Effect::Access access,
                                           const CGContext& cg_context,
                                           const Type* type,
-                                          const CVQualifiers* qfer);
+                                          const CVQualifiers* qfer,
+                                          bool force_no_hip_shared = false);
 
   static void get_all_array_vars(vector<const Variable*>& array_vars);
 
@@ -211,7 +214,7 @@ class VariableSelector {
                                          const CGContext& cg_context,
                                          const Type* t,
                                          const CVQualifiers* qfer, Block* blk,
-                                         std::string name);
+                                         std::string name, bool isHipShared);
 
   // all variables generated
   static vector<Variable*> AllVars;

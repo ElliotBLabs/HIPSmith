@@ -144,8 +144,9 @@ static string RandomParamName(void) { return gensym("p_"); }
 Variable* VariableSelector::new_variable(const std::string& name,
                                          const Type* type,
                                          const Expression* init,
-                                         const CVQualifiers* qfer) {
-  Variable* var = Variable::CreateVariable(name, type, init, qfer);
+                                         const CVQualifiers* qfer,
+                                         bool isHipShared) {
+  Variable* var = Variable::CreateVariable(name, type, init, qfer, isHipShared);
   ERROR_GUARD(NULL);
   AllVars.push_back(var);
   return var;
@@ -410,7 +411,7 @@ Variable* VariableSelector::choose_var(
     vector<Variable*> vars, Effect::Access access, const CGContext& cg_context,
     const Type* type, const CVQualifiers* qfer, eMatchType mt,
     const vector<const Variable*>& invalid_vars, bool no_bitfield,
-    bool no_expand_struct_union) {
+    bool no_expand_struct_union, bool allow_hip_shared_address) {
   vector<Variable*> ok_vars;
   vector<Variable*>::iterator i;
 
@@ -434,6 +435,13 @@ Variable* VariableSelector::choose_var(
     if (qfer && !qfer->match_indirect((*i)->qfer)) {
       continue;
     }
+
+    // Do a chain of checks for recursive structures to check if it is HIP
+    // shared memory
+    if (!allow_hip_shared_address && has_hip_shared_ancestor(*i)) {
+      continue;
+    }
+
     // skip any variable in the invalid_vars list
     if (is_variable_in_set(invalid_vars, *i)) {
       continue;
@@ -498,21 +506,25 @@ Variable* VariableSelector::choose_var(
 
 Variable* VariableSelector::create_and_initialize(
     Effect::Access access, const CGContext& cg_context, const Type* t,
-    const CVQualifiers* qfer, Block* blk, std::string name) {
+    const CVQualifiers* qfer, Block* blk, std::string name, bool isHipShared) {
   const Expression* init = NULL;
   Variable* var = NULL;
+  // we use the HIP shared flag to help enforce restrictions if we are
+  // creating a HIP shared variable
 
   if (t->eType == eVector || rnd_flipcoin(NewArrayVariableProb)) {
     const Type* simple_type = &HIPSmith::Vector::DemoteVectorTypeToType(t);
     if (CGOptions::strict_const_arrays()) {
       init = Constant::make_random(simple_type);
     } else {
-      init = make_init_value(access, cg_context, simple_type, qfer, blk);
+      init = make_init_value(access, cg_context, simple_type, qfer, blk,
+                             isHipShared);
     }
-    var = create_array_and_itemize(blk, name, cg_context, t, init, qfer);
+    var = create_array_and_itemize(blk, name, cg_context, t, init, qfer,
+                                   isHipShared);
   } else {
-    init = make_init_value(access, cg_context, t, qfer, blk);
-    var = new_variable(name, t, init, qfer);
+    init = make_init_value(access, cg_context, t, qfer, blk, isHipShared);
+    var = new_variable(name, t, init, qfer, isHipShared);
   }
   assert(var);
   return var;
@@ -537,8 +549,9 @@ Variable* VariableSelector::GenerateNewGlobal(Effect::Access access,
   ERROR_GUARD(NULL);
   string name = RandomGlobalName();
   tmp_count++;
+  // HIP shared variables must be in a kernel not globals
   Variable* var =
-      create_and_initialize(access, cg_context, t, &var_qfer, 0, name);
+      create_and_initialize(access, cg_context, t, &var_qfer, 0, name, false);
 
   GlobalList.push_back(var);
   // for DFA
@@ -570,7 +583,8 @@ Variable* VariableSelector::GenerateNewNonArrayGlobal(
 
   const Expression* init = make_init_value(access, cg_context, t, qfer, NULL);
   ERROR_GUARD(NULL);
-  Variable* var = new_variable(name, t, init, qfer);
+  // HIP shared variables must be in a kernel not globals
+  Variable* var = new_variable(name, t, init, qfer, false);
 
   GlobalList.push_back(var);
   // for DFA
@@ -585,8 +599,7 @@ Variable* VariableSelector::GenerateNewNonArrayGlobal(
   return var;
 }
 
-Variable* VariableSelector::GenerateHIPConstant(
-    const CGContext& cg_context) {
+Variable* VariableSelector::GenerateHIPConstant(const CGContext& cg_context) {
   ERROR_GUARD(NULL);
 
   // even though this will be a const in our eyes we dont want to confuse
@@ -609,10 +622,12 @@ Variable* VariableSelector::GenerateHIPConstant(
   const Expression* init = Constant::make_random(t);
   Variable* var = NULL;
 
+  // HIP shared variables must be in a kernel not globals
   if (rnd_flipcoin(NewArrayVariableProb)) {
-    var = create_array_and_itemize(NULL, name, cg_context, t, init, &var_qfer);
+    var = create_array_and_itemize(NULL, name, cg_context, t, init, &var_qfer,
+                                   false);
   } else {
-    var = new_variable(name, t, init, &var_qfer);
+    var = new_variable(name, t, init, &var_qfer, false);
   }
   assert(var);
 
@@ -847,8 +862,8 @@ Block* VariableSelector::lower_block_for_vars(const vector<Block*>& blks,
 Expression* VariableSelector::make_init_value(Effect::Access access,
                                               const CGContext& cg_context,
                                               const Type* t,
-                                              const CVQualifiers* qf,
-                                              Block* b) {
+                                              const CVQualifiers* qf, Block* b,
+                                              bool allow_hip_shared_address) {
   assert(qf && qf->sanity_check(t));
   CVQualifiers qfer(*qf);
   // the initialzer should always be less restricting than the variable to be
@@ -862,22 +877,26 @@ Expression* VariableSelector::make_init_value(Effect::Access access,
   }
   ERROR_GUARD(NULL);
   // for pointers, take address of a random visible local variable
+  // ISSUE: we have to be careful on if we are alllowed to use
+  //        the addresses of HIP shared memory, for example this
+  //        is not allowed in a static initialisation of a
+  //        normal variable so we pass this down into choose var itself
   const Type* type = t->ptr_type;
   assert(type);
 
   vector<Variable*> vars = find_all_visible_vars(b);
+
   vector<const Variable*> dummy;
 
   Variable* var = NULL;
-  // b == NULL means we are generating init for globals
   if (!b && CGOptions::ccomp()) {
     get_all_array_vars(dummy);
     var = choose_var(vars, access, cg_context, type, &qfer, eExact, dummy, true,
-                     true);
+                     true, allow_hip_shared_address);
   } else {
     if (!CGOptions::addr_taken_of_locals()) get_all_local_vars(b, dummy);
-    var =
-        choose_var(vars, access, cg_context, type, &qfer, eExact, dummy, true);
+    var = choose_var(vars, access, cg_context, type, &qfer, eExact, dummy, true,
+                     false, allow_hip_shared_address);
   }
   ERROR_GUARD(NULL);
 
@@ -902,9 +921,15 @@ Expression* VariableSelector::make_init_value(Effect::Access access,
     ERROR_GUARD(NULL);
     // create a local if it's not a volatile, and it's a pointer, and block is
     // specified
+
+    // we want to prevent a local varaible to be generated and then take the
+    // address of it and be used as an initial value if we are in a setting
+    // where HIP addresses cannot be used as initialiser values
+    bool force_no_hip_shared = !allow_hip_shared_address;
+
     if (CGOptions::addr_taken_of_locals() && use_local) {
-      var =
-          GenerateNewParentLocal(*b, Effect::READ, cg_context, tt, &qfer_deref);
+      var = GenerateNewParentLocal(*b, Effect::READ, cg_context, tt,
+                                   &qfer_deref, force_no_hip_shared);
       ERROR_GUARD(NULL);
       Bookkeeper::record_volatile_access(
           var, var->type->get_indirect_level() - tt->get_indirect_level(),
@@ -925,7 +950,8 @@ Expression* VariableSelector::make_init_value(Effect::Access access,
 
     // Assumes it can generate anything, best we can do atm is try again ...
     if (var->isArray && static_cast<ArrayVariable*>(var)->isVector)
-      return make_init_value(access, cg_context, t, qf, b);
+      return make_init_value(access, cg_context, t, qf, b,
+                             allow_hip_shared_address);
   }
 
   assert(var);
@@ -933,11 +959,9 @@ Expression* VariableSelector::make_init_value(Effect::Access access,
 }
 
 // --------------------------------------------------------------
-Variable* VariableSelector::GenerateNewParentLocal(Block& block,
-                                                   Effect::Access access,
-                                                   const CGContext& cg_context,
-                                                   const Type* t,
-                                                   const CVQualifiers* qfer) {
+Variable* VariableSelector::GenerateNewParentLocal(
+    Block& block, Effect::Access access, const CGContext& cg_context,
+    const Type* t, const CVQualifiers* qfer, bool force_no_hip_shared) {
   ERROR_GUARD(NULL);
   assert(t);
   // if this is for a struct/union with volatile field(s), create a global
@@ -960,8 +984,15 @@ Variable* VariableSelector::GenerateNewParentLocal(Block& block,
   assert(var_qfer.sanity_check(t));
   string name = RandomLocalName();
 
-  Variable* var =
-      create_and_initialize(access, cg_context, t, &var_qfer, blk, name);
+  // fixed 20% chance of being shared unless we are being forced to not generate
+  // them
+  bool isHipShared = false;
+  if (!force_no_hip_shared && HIPSmith::HIPOptions::hip_shared()) {
+    isHipShared = pure_rnd_flipcoin(20);
+  }
+
+  Variable* var = create_and_initialize(access, cg_context, t, &var_qfer, blk,
+                                        name, isHipShared);
   blk->local_vars.push_back(var);
   FactMgr* fm = get_fact_mgr(&cg_context);
   fm->add_new_var_fact_and_update_inout_maps(blk, var->get_collective());
@@ -974,7 +1005,8 @@ Variable* VariableSelector::GenerateNewParentLocal(Block& block,
  */
 Variable* VariableSelector::GenerateParameterVariable(
     const Type* type, const CVQualifiers* qfer) {
-  return new_variable(RandomParamName(), type, 0, qfer);
+  // Paramater variables for tracking are not HIP shared memory
+  return new_variable(RandomParamName(), type, 0, qfer, false);
 }
 
 // --------------------------------------------------------------
@@ -995,7 +1027,8 @@ void VariableSelector::GenerateParameterVariable(Function& curFunc) {
 
   CVQualifiers qfer = CVQualifiers::random_qualifiers(t);
   ERROR_RETURN();
-  Variable* param = new_variable(RandomParamName(), t, 0, &qfer);
+  // Paramater variables for tracking are not HIP shared memory
+  Variable* param = new_variable(RandomParamName(), t, 0, &qfer, false);
   ERROR_RETURN();
   curFunc.param.push_back(param);
 }
@@ -1172,11 +1205,12 @@ Variable* VariableSelector::SelectLoopCtrlVar(
   // pointer effect
   size_t len = vars.size();
   for (size_t i = 0; i < len; i++) {
-    if (vars[i]->is_hip_const() || vars[i]->type &&
-        (!vars[i]->type->has_int_field() ||  // remove variables isn't (or
-                                             // doesn't contain) integers
-         (vars[i]->type->eType == eUnion &&
-          vars[i]->type->contain_pointer_field()))) {
+    if (vars[i]->is_hip_const() ||
+        vars[i]->type &&
+            (!vars[i]->type->has_int_field() ||  // remove variables isn't (or
+                                                 // doesn't contain) integers
+             (vars[i]->type->eType == eUnion &&
+              vars[i]->type->contain_pointer_field()))) {
       vars.erase(vars.begin() + i);
       i--;
       len--;
@@ -1333,21 +1367,38 @@ Variable* VariableSelector::select_deref_pointer(
   return var;
 }
 
+// checks whether some ancestor of a variable is shared HIP memory
+bool VariableSelector::has_hip_shared_ancestor(const Variable* v) {
+  if (!v) return false;
+  if (v->isHipShared) return true;
+
+  // struct/union field parent check
+  if (v->field_var_of) return has_hip_shared_ancestor(v->field_var_of);
+
+  // itemised array parent check
+  if (v->get_collective() && v->get_collective() != v) {
+    return has_hip_shared_ancestor(v->get_collective());
+  }
+
+  return false;
+}
+
 /*
  * create an array, and return an itemized member
  */
 ArrayVariable* VariableSelector::create_array_and_itemize(
     Block* blk, string name, const CGContext& cg_context, const Type* t,
-    const Expression* init, const CVQualifiers* qfer) {
+    const Expression* init, const CVQualifiers* qfer, bool isHipShared) {
   const Type* simple_type = &HIPSmith::Vector::DemoteVectorTypeToType(t);
-  ArrayVariable* av =
-      ((t->eType == eVector) ||
-       (t->eType == eSimple && HIPSmith::HIPOptions::vectors() &&
-        rnd_flipcoin(20)))
-          ? HIPSmith::Vector::CreateVectorVariable(
-                cg_context, blk, name, simple_type, init, qfer, NULL)
-          : ArrayVariable::CreateArrayVariable(cg_context, blk, name,
-                                               simple_type, init, qfer, NULL);
+  ArrayVariable* av = ((t->eType == eVector) ||
+                       (t->eType == eSimple &&
+                        HIPSmith::HIPOptions::vectors() && rnd_flipcoin(20)))
+                          ? HIPSmith::Vector::CreateVectorVariable(
+                                cg_context, blk, name, simple_type, init, qfer,
+                                NULL, isHipShared)
+                          : ArrayVariable::CreateArrayVariable(
+                                cg_context, blk, name, simple_type, init, qfer,
+                                NULL, isHipShared);
   ERROR_GUARD(NULL);
   AllVars.push_back(av);
   return av->itemize();
@@ -1358,7 +1409,7 @@ ArrayVariable* VariableSelector::create_array_and_itemize(
  * a random block (or as global)
  */
 ArrayVariable* VariableSelector::create_random_array(
-    const CGContext& cg_context) {
+    const CGContext& cg_context, bool isHipShared) {
   bool as_global = CGOptions::global_variables() && rnd_flipcoin(25);
   ERROR_GUARD(NULL);
   string name;
@@ -1384,12 +1435,13 @@ ArrayVariable* VariableSelector::create_random_array(
   qfer.add_qualifiers(false, false);
 
   Expression* init = Constant::make_random(type);
-  ArrayVariable* av = (type->eType == eSimple &&
-                       HIPSmith::HIPOptions::vectors() && rnd_flipcoin(20))
-                          ? HIPSmith::Vector::CreateVectorVariable(
-                                cg_context, blk, name, type, init, &qfer, NULL)
-                          : ArrayVariable::CreateArrayVariable(
-                                cg_context, blk, name, type, init, &qfer, NULL);
+  ArrayVariable* av =
+      (type->eType == eSimple && HIPSmith::HIPOptions::vectors() &&
+       rnd_flipcoin(20))
+          ? HIPSmith::Vector::CreateVectorVariable(
+                cg_context, blk, name, type, init, &qfer, NULL, isHipShared)
+          : ArrayVariable::CreateArrayVariable(cg_context, blk, name, type,
+                                               init, &qfer, NULL, isHipShared);
   AllVars.push_back(av);
 
   // make the points-to fact known to DFA
@@ -1434,7 +1486,12 @@ ArrayVariable* VariableSelector::select_array(const CGContext& cg_context) {
   }
   len = array_vars.size();
   if (len == 0) {
-    return create_random_array(cg_context);
+    // fixed 20% chance of being shared
+    bool isHipShared = false;
+    if (HIPSmith::HIPOptions::hip_shared()) {
+      isHipShared = pure_rnd_flipcoin(20);
+    }
+    return create_random_array(cg_context, isHipShared);
   }
   if (len == 1) return array_vars[0];
   size_t index = rnd_upto(len);
@@ -1568,7 +1625,9 @@ ArrayVariable* VariableSelector::create_mutated_array_var(
 
 Variable* VariableSelector::make_dummy_static_variable(const string& name) {
   CVQualifiers dummy;
-  Variable* var = new Variable(name, 0, 0, &dummy);
+  // for creating global static cpp vars that can have UB if order not specified
+  // - deffo not HIP shared memory
+  Variable* var = new Variable(name, 0, 0, &dummy, false);
   return var;
 }
 

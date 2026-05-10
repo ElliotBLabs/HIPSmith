@@ -120,7 +120,7 @@ static const Variable* find_expr_key_var(const Expression* e) {
 ArrayVariable* ArrayVariable::CreateArrayVariable(
     const CGContext& cg_context, Block* blk, const std::string& name,
     const Type* type, const Expression* init, const CVQualifiers* qfer,
-    const Variable* isFieldVarOf) {
+    const Variable* isFieldVarOf, bool isHipShared) {
   assert(type);
   if (type->eType == eSimple) assert(type->simple_type != eVoid);
 
@@ -152,7 +152,7 @@ ArrayVariable* ArrayVariable::CreateArrayVariable(
     }
   }
   ArrayVariable* var = new ArrayVariable(blk, name, type, init, qfer, sizes,
-                                         isFieldVarOf, false);
+                                         isFieldVarOf, false, isHipShared);
   ERROR_GUARD_AND_DEL1(NULL, var);
   if (type->is_aggregate()) {
     var->create_field_vars(type);
@@ -174,8 +174,12 @@ ArrayVariable* ArrayVariable::CreateArrayVariable(
       if (type->eType != ePointer || CGOptions::strict_const_arrays()) {
         e = Constant::make_random(type);
       } else {
+        // If the array is shared, we use a loop initialiser, so HIP shared
+        // addresses are safe.
+        // If it isn't shared, it uses a static initialiser, so HIP shared
+        // addresses are not safe
         e = VariableSelector::make_init_value(Effect::READ, cg_context, type,
-                                              qfer, blk);
+                                              qfer, blk, isHipShared);
       }
       var->add_init_value(e);
     }
@@ -194,8 +198,9 @@ ArrayVariable::ArrayVariable(Block* blk, const std::string& name,
                              const Type* type, const Expression* init,
                              const CVQualifiers* qfer,
                              const vector<unsigned int>& sizes,
-                             const Variable* isFieldVarOf, bool isVector)
-    : Variable(name, type, init, qfer, isFieldVarOf, true),
+                             const Variable* isFieldVarOf, bool isVector,
+                             bool isHipShared)
+    : Variable(name, type, init, qfer, isFieldVarOf, true, isHipShared),
       isVector(isVector),
       collective(NULL),
       parent(blk),
@@ -204,7 +209,10 @@ ArrayVariable::ArrayVariable(Block* blk, const std::string& name,
 }
 
 ArrayVariable::ArrayVariable(const ArrayVariable& av)
-    : Variable(av.name, av.type, av.init, &(av.qfer), av.field_var_of, true),
+    // this is used to create children and if the parent is in HIP Shared memory
+    // then so are the fields
+    : Variable(av.name, av.type, av.init, &(av.qfer), av.field_var_of, true,
+               av.isHipShared),
       isVector(av.isVector),
       collective(av.collective),
       parent(av.parent),
@@ -482,7 +490,19 @@ string ArrayVariable::build_initializer_str(
 void ArrayVariable::OutputDef(std::ostream& out, int indent) const {
   if (collective == 0) {
     output_tab(out, indent);
-    if (!no_loop_initializer()) {
+    if (this->isHipShared) {
+      // If in shared HIP memory have to use for loop intialiser as we cannot
+      // use static initialisers
+      outputln(out);
+
+      output_tab(out, indent);
+      OutputDecl(out);
+      out << ";";
+      outputln(out);
+      vector<const Variable*>& cvs = Variable::get_new_ctrl_vars();
+      output_init(out, init, cvs, indent);
+
+    } else if (!no_loop_initializer()) {
       // don't print definition for array, rather use a loop initializer
       OutputDecl(out);
       out << ";";
@@ -519,6 +539,10 @@ void ArrayVariable::OutputDecl(std::ostream& out) const {
   // force global variables to be static if necessary
   if (CGOptions::force_globals_static() && is_global()) {
     out << "static ";
+  }
+
+  if (this->isHipShared) {
+    out << "__shared__ ";
   }
 
   output_qualified_type(out);
@@ -630,7 +654,7 @@ void ArrayVariable::output_init(std::ostream& out, const Expression* init,
       indent++;
     }
     output_tab(out, indent);
-    out << "for (";
+    out << "for (int ";
     out << cvs[i]->get_actual_name();
     out << " = 0; ";
     out << cvs[i]->get_actual_name();

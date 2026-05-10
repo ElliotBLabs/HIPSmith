@@ -14,6 +14,7 @@ class HIPOptions {
   // small                    - restrict the output to be a smaller program
   // is_emitting_device_code  - are currently writing hip code not cpp code
   // hip_consts               - generate global read only HIP constants
+  // hip_shared               - generate local HIP shared memory variables
 
 #define DEFINE_HIPFLAG(name, type) \
  private:                          \
@@ -29,6 +30,7 @@ class HIPOptions {
   DEFINE_HIPFLAG(is_emitting_device_code, bool)
   DEFINE_HIPFLAG(vectors, bool)
   DEFINE_HIPFLAG(hip_consts, bool)
+  DEFINE_HIPFLAG(hip_shared, bool)
 #undef DEFINE_HIPFLAG
 
   static void set_default_settings();

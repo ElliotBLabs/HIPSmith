@@ -70,8 +70,10 @@ FunctionInvocation *AbsExtension::MakeFuncInvocation(
   for (i = values.begin(); i != values.end(); ++i) {
     assert(*i);
     CVQualifiers qfer = (*i)->get_qfer();
-    Variable *v = VariableSelector::new_variable((*i)->get_name(),
-                                                 (*i)->get_type(), NULL, &qfer);
+    // As these are designed to be abstract extensions to C we will not let
+    // these be shared HIP memory
+    Variable *v = VariableSelector::new_variable(
+        (*i)->get_name(), (*i)->get_type(), NULL, &qfer, false);
     Expression *p = new ExpressionVariable(*v, (*i)->get_type());
     fi->param_value.push_back(p);
   }

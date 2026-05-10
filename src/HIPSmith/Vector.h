@@ -29,8 +29,9 @@ class Vector : public ArrayVariable {
   // Will only accept 1-dimensional sizes.
   Vector(Block* blk, const std::string& name, const Type* type,
          const Expression* init, const CVQualifiers* qfer, unsigned size,
-         const Variable* isFieldVarOf)
-      : ArrayVariable(blk, name, type, init, qfer, {size}, isFieldVarOf, true),
+         const Variable* isFieldVarOf, bool isHipShared)
+      : ArrayVariable(blk, name, type, init, qfer, {size}, isFieldVarOf, true,
+                      isHipShared),
         comp_access_index_(-1) {  // -1 means the whole vector is being
                                   // accessed, not a component.
   }
@@ -50,7 +51,8 @@ class Vector : public ArrayVariable {
                                       const std::string& name, const Type* type,
                                       const Expression* init,
                                       const CVQualifiers* qfer,
-                                      const Variable* isFieldVarOf);
+                                      const Variable* isFieldVarOf,
+                                      bool isHipShared);
 
   // Itemise methods for using a specific entry in the vector. All accesses must
   // be a constant index, so the last two methods will randomise the access.
