@@ -231,9 +231,20 @@ void HIPOutputMgr::OutputEntryFunction(Globals &globals) {
   driver_out << "// Config" << std::endl;
   output_tab(driver_out, 1);
   driver_out << "const unsigned int num_threads = 4;" << std::endl;
-  output_tab(driver_out, 1);
-  driver_out << "const unsigned int block_size = 4;" << std::endl;
-  driver_out << std::endl;
+
+  // HIP shared memory requires block size is 1 or we will get data races
+  // across the block
+  if (HIPSmith::HIPOptions::hip_shared()) {
+    output_tab(driver_out, 1);
+    driver_out << "// argc should be 1 so block size=1 enforced due to using "
+                  "HIP's shared memory."
+               << std::endl;
+    output_tab(driver_out, 1);
+    driver_out << "const unsigned int block_size = argc;" << std::endl;
+  } else {
+    output_tab(driver_out, 1);
+    driver_out << "const unsigned int block_size = 4;" << std::endl;
+  }
 
   output_tab(driver_out, 1);
   driver_out << "// Host Alloc" << std::endl;

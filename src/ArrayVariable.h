@@ -43,12 +43,10 @@ using namespace std;
 
 class ArrayVariable : public Variable {
  public:
-  static ArrayVariable* CreateArrayVariable(const CGContext& cg_context,
-                                            Block* blk, const std::string& name,
-                                            const Type* type,
-                                            const Expression* init,
-                                            const CVQualifiers* qfer,
-                                            const Variable* isFieldVarOf);
+  static ArrayVariable* CreateArrayVariable(
+      const CGContext& cg_context, Block* blk, const std::string& name,
+      const Type* type, const Expression* init, const CVQualifiers* qfer,
+      const Variable* isFieldVarOf, bool isHipShared);
   ArrayVariable(const ArrayVariable& av);
   virtual ~ArrayVariable(void);
 
@@ -116,7 +114,7 @@ class ArrayVariable : public Variable {
   ArrayVariable(Block* blk, const std::string& name, const Type* type,
                 const Expression* init, const CVQualifiers* qfer,
                 const vector<unsigned int>& sizes, const Variable* isFieldVarOf,
-                bool isVector);
+                bool isVector, bool isHipShared);
 
   const std::vector<unsigned int> sizes;
   std::vector<const Expression*> indices;

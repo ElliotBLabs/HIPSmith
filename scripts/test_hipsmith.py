@@ -27,7 +27,7 @@ def run_fuzz_iteration(i):
     with tempfile.TemporaryDirectory() as tmpdir:
         # 1. Generate the HIP program
         try:
-            gen_proc = subprocess.run([HIPSMITH_PATH, "--vectors", "--hip-consts"], 
+            gen_proc = subprocess.run([HIPSMITH_PATH, "--vectors", "--hip-consts", "--hip-shared"], 
                                       cwd=tmpdir, 
                                       stdout=subprocess.DEVNULL, 
                                       stderr=subprocess.DEVNULL)

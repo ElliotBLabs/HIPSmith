@@ -38,7 +38,8 @@ Vector *Vector::CreateVectorVariable(const CGContext &cg_context, Block *blk,
                                      const std::string &name, const Type *type,
                                      const Expression *init,
                                      const CVQualifiers *qfer,
-                                     const Variable *isFieldVarOf) {
+                                     const Variable *isFieldVarOf,
+                                     bool isHipShared) {
   assert(type != NULL);
   assert((type->eType == eSimple || type->eType == eVector) &&
          type->simple_type != eVoid);
@@ -52,8 +53,9 @@ Vector *Vector::CreateVectorVariable(const CGContext &cg_context, Block *blk,
     size = GetRandomVectorLength(0);
   }
 
-  // Create vector and push to the back of the appropriate variable list.
-  Vector *vector = new Vector(blk, name, type, init, qfer, size, isFieldVarOf);
+  // Create vector and push to the back of the appropriate variable list
+  Vector *vector =
+      new Vector(blk, name, type, init, qfer, size, isFieldVarOf, isHipShared);
   vector->add_init_value(Constant::make_random(type));
   blk ? blk->local_vars.push_back(vector)
       : VariableSelector::GetGlobalVariables()->push_back(vector);
@@ -87,24 +89,34 @@ void Vector::OutputDef(std::ostream &out, int indent) const {
   if (collective != NULL) return;
   output_tab(out, indent);
   OutputDecl(out);
-  if (!no_loop_initializer()) {
-    out << ';';
-    outputln(out);
-    return;
-  }
   std::vector<std::string> init_strs;
   assert(init);
   init_strs.push_back(init->to_string());
   for (const auto &expr : init_values) init_strs.push_back(expr->to_string());
 
-  out << " = " << build_initializer_str(init_strs) << ';';
-  outputln(out);
+  if (this->isHipShared) {
+    // HIP Shared memory requires the intiialisation on the next line
+    out << ";";
+    outputln(out);
+    output_tab(out, indent);
+    out << get_actual_name() << " = " << build_initializer_str(init_strs)
+        << ';';
+    outputln(out);
+  } else {
+    out << " = " << build_initializer_str(init_strs) << ';';
+    outputln(out);
+  }
 }
 
 void Vector::OutputDecl(std::ostream &out) const {
   // Trying to print all qualifiers prints the type as well. We don't allow
   // vector pointers regardless.
   qfer.OutputFirstQuals(out);
+
+  if (this->isHipShared) {
+    out << "__shared__ ";
+  }
+
   OutputVectorType(out, type, sizes[0]);
   out << ' ' << get_actual_name();
 }
