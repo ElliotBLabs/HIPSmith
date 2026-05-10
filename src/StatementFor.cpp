@@ -177,7 +177,8 @@ const Variable* StatementFor::make_iteration(CGContext& cg_context,
   do {
     var = VariableSelector::SelectLoopCtrlVar(cg_context, invalid_vars);
     ERROR_GUARD(NULL);
-    if (var->is_volatile()) {
+    // block consts
+    if (var->is_volatile() || var->is_const()) {
       invalid_vars.push_back(var);
     } else {
       break;

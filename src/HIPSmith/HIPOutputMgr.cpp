@@ -43,7 +43,6 @@ void HIPOutputMgr::OutputHeader(int argc, char *argv[], unsigned long seed) {
          "------------------------------------------------------------------\n"
       << "#include \"HIPSmith.h\"\n"
       << "#include \"safe_math_macros.h\"\n\n"
-      << "#include \"safe_math_macros.h\"\n\n"
       << "#define uint8_t unsigned char\n"
       << "#define int8_t char\n"
 
@@ -220,7 +219,6 @@ void HIPOutputMgr::OutputEntryFunction(Globals &globals) {
       << "#include <cstdio>\n"
       << "#include <vector>\n"
       << "#include \"HIPSmith.h\"\n"
-      << "#include \"safe_math_macros.h\"\n\n"
       << "extern __global__ void hipsmith_kernel(uint64_t *results);\n";
 
   if (HIPSmith::HIPOptions::hip_consts()) {

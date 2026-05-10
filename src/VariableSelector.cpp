@@ -1172,7 +1172,7 @@ Variable* VariableSelector::SelectLoopCtrlVar(
   // pointer effect
   size_t len = vars.size();
   for (size_t i = 0; i < len; i++) {
-    if (vars[i]->type &&
+    if (vars[i]->is_hip_const() || vars[i]->type &&
         (!vars[i]->type->has_int_field() ||  // remove variables isn't (or
                                              // doesn't contain) integers
          (vars[i]->type->eType == eUnion &&
