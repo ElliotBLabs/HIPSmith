@@ -39,7 +39,8 @@ class HIPProgramGenerator : public AbsProgramGenerator {
 
   unsigned long seed_;
 
-  void GenerateHIPConstants();
+  // generate __constant__ and __managed__ globals
+  void GenerateHIPGlobals();
 };
 
 }  // namespace HIPSmith

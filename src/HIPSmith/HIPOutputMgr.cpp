@@ -27,7 +27,8 @@ void HIPOutputMgr::OutputHeader(int argc, char *argv[], unsigned long seed) {
       << "#include <cstddef>\n"
       << "#include <climits>\n"
       << "#include <cstring>\n"
-      << "#include <iostream>\n\n"
+      << "#include <iostream>\n"
+      << "#include <cstdint>\n\n"
 
       << "// "
          "------------------------------------------------------------------\n"
@@ -64,7 +65,7 @@ void HIPOutputMgr::Output() {
 
   OutputStructUnionDeclarations(out);
 
-  OutputHipConsts();
+  OutputHipGlobals();
 
   Globals *globals = Globals::GetGlobals();
   globals->OutputStructDefinition(out);
@@ -78,83 +79,97 @@ void HIPOutputMgr::Output() {
 
 std::ostream &HIPOutputMgr::get_main_out() { return out_; }
 
-void HIPOutputMgr::OutputHipConsts() {
-  // got to be turned on
-  if (!HIPSmith::HIPOptions::hip_consts()) return;
-
+void HIPOutputMgr::OutputHipGlobals() {
   std::ostream &out = get_main_out();
-  out << "// "
-         "------------------------------------------------------------------\n";
-  out << "// Constant Memory Declarations\n";
-  out << "// "
-         "------------------------------------------------------------------\n";
   for (Variable *var : *VariableSelector::GetGlobalVariables()) {
-    if (!var->is_hip_const()) continue;
-
     // skip csmiths duplicate itemised arrays
     if (var->isArray) {
       ArrayVariable *av = dynamic_cast<ArrayVariable *>(var);
       if (av && !av->collective) continue;
     }
 
-    // output the global defintion of the variable
-    out << "__constant__ ";
-    var->OutputDecl(out);
-    out << ";" << std::endl;
+    if (var->is_hip_const()) {
+      // output the global defintion of the variable
+      out << "__constant__ ";
+      var->OutputDecl(out);
+      out << ";" << std::endl;
+
+    } else if (var->is_hip_managed()) {
+      // output global def of a managed variable
+      out << "__managed__ ";
+      var->OutputDecl(out);
+      if (!(var->isArray &&
+            static_cast<const ArrayVariable *>(var)->isVector)) {
+        out << " = ";
+      }
+
+      // initialiser for the var
+      if (var->isArray) {
+        ArrayVariable *var_array = dynamic_cast<ArrayVariable *>(var);
+        std::vector<std::string> init_strings;
+        init_strings.push_back(var_array->init->to_string());
+        for (const Expression *init : var_array->get_more_init_values()) {
+          init_strings.push_back(init->to_string());
+        }
+        out << var_array->build_initializer_str(init_strings);
+      } else {
+        var->init->Output(out);
+      }
+      out << ";" << std::endl;
+    }
   }
   out << std::endl;
 
-  out << "// ------------------------------------------------------------------"
-      << std::endl;
-  out << "// Constant Memory Setup" << std::endl;
-  out << "// ------------------------------------------------------------------"
-      << std::endl;
-  out << "void setup_hip_constants() {" << std::endl;
+  // we need to setup the HIP const special setup as cannot inline init them
+  if (HIPOptions::hip_consts()) {
+    out << "void setup_hip_constants() {" << std::endl;
 
-  for (Variable *var : *VariableSelector::GetGlobalVariables()) {
-    // skip other global vars that arent hip consts
-    if (!var->is_hip_const()) continue;
+    for (Variable *var : *VariableSelector::GetGlobalVariables()) {
+      // skip other global vars that arent hip consts
+      if (!var->is_hip_const()) continue;
 
-    // do not use duplicated itemized arrays
-    if (var->isArray) {
-      ArrayVariable *av = dynamic_cast<ArrayVariable *>(var);
-      if (av && !av->collective) continue;
-    }
-
-    output_tab(out, 2);
-
-    // output a host version of the varaible that will then be copied to device
-    std::ostringstream oss;
-    var->OutputDecl(oss);
-    std::string decl_str = oss.str();
-
-    // swap the actual name to a special host version
-    size_t pos = decl_str.find(var->name);
-    if (pos != std::string::npos) {
-      decl_str.replace(pos, var->name.length(), "host_" + var->name);
-    }
-    out << decl_str << " = ";
-
-    // initialiser for the var
-    if (var->isArray) {
-      ArrayVariable *var_array = dynamic_cast<ArrayVariable *>(var);
-      std::vector<std::string> init_strings;
-      init_strings.push_back(var_array->init->to_string());
-      for (const Expression *init : var_array->get_more_init_values()) {
-        init_strings.push_back(init->to_string());
+      // do not use duplicated itemized arrays
+      if (var->isArray) {
+        ArrayVariable *av = dynamic_cast<ArrayVariable *>(var);
+        if (av && !av->collective) continue;
       }
-      out << var_array->build_initializer_str(init_strings);
-    } else {
-      var->init->Output(out);
-    }
-    out << ";" << std::endl;
 
-    // copy from host to device
-    output_tab(out, 2);
-    out << "HIP_CHECK(hipMemcpyToSymbol(" << var->name << ", &host_"
-        << var->name << ", sizeof(host_" << var->name << ")));" << std::endl;
+      output_tab(out, 2);
+
+      // output a host version of the varaible that will then be copied to
+      // device
+      std::ostringstream oss;
+      var->OutputDecl(oss);
+      std::string decl_str = oss.str();
+
+      // swap the actual name to a special host version
+      size_t pos = decl_str.find(var->name);
+      if (pos != std::string::npos) {
+        decl_str.replace(pos, var->name.length(), "host_" + var->name);
+      }
+      out << decl_str << " = ";
+
+      // initialiser for the var
+      if (var->isArray) {
+        ArrayVariable *var_array = dynamic_cast<ArrayVariable *>(var);
+        std::vector<std::string> init_strings;
+        init_strings.push_back(var_array->init->to_string());
+        for (const Expression *init : var_array->get_more_init_values()) {
+          init_strings.push_back(init->to_string());
+        }
+        out << var_array->build_initializer_str(init_strings);
+      } else {
+        var->init->Output(out);
+      }
+      out << ";" << std::endl;
+
+      // copy from host to device
+      output_tab(out, 2);
+      out << "HIP_CHECK(hipMemcpyToSymbol(" << var->name << ", &host_"
+          << var->name << ", sizeof(host_" << var->name << ")));" << std::endl;
+    }
+    out << "}" << std::endl << std::endl;
   }
-  out << "}" << std::endl << std::endl;
 }
 
 void HIPOutputMgr::OutputEntryFunction(Globals &globals) {
@@ -227,10 +242,17 @@ void HIPOutputMgr::OutputEntryFunction(Globals &globals) {
 
   driver_out << "\nint main(int argc, const char* argv[]) {\n";
 
-  output_tab(driver_out, 1);
-  driver_out << "// Config" << std::endl;
-  output_tab(driver_out, 1);
-  driver_out << "const unsigned int num_threads = 4;" << std::endl;
+  if (HIPSmith::HIPOptions::hip_managed()) {
+    output_tab(driver_out, 1);
+    driver_out << "// argc should be 1 so block size=1 enforced due to using "
+                  "HIP's managed memory."
+               << std::endl;
+    output_tab(driver_out, 1);
+    driver_out << "const unsigned int num_threads = argc;" << std::endl;
+  } else {
+    output_tab(driver_out, 1);
+    driver_out << "const unsigned int num_threads = 4;" << std::endl;
+  }
 
   // HIP shared memory requires block size is 1 or we will get data races
   // across the block

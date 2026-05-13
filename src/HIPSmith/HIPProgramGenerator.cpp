@@ -27,7 +27,7 @@ void HIPProgramGenerator::goGenerator() {
   Vector::GenerateVectorTypes();
   GenerateAllTypes();
 
-  GenerateHIPConstants();
+  GenerateHIPGlobals();
 
   GenerateFunctions();
   output_mgr_->Output();
@@ -42,14 +42,20 @@ std::string HIPProgramGenerator::get_count_prefix(const std::string& name) {
 
 void HIPProgramGenerator::initialize() {}
 
-void HIPProgramGenerator::GenerateHIPConstants() {
-  if (!HIPSmith::HIPOptions::hip_consts()) return;
+void HIPProgramGenerator::GenerateHIPGlobals() {
+  int max_gen = 20;
+  if (HIPSmith::HIPOptions::hip_consts()) {
+    int num_consts = rnd_upto(max_gen);
+    for (int i = 0; i < num_consts; i++) {
+      VariableSelector::GenerateHIPConstant(CGContext::get_empty_context());
+    }
+  }
 
-  int max_consts = 20;
-
-  int num_consts = rnd_upto(max_consts);
-  for (int i = 0; i < num_consts; i++) {
-    VariableSelector::GenerateHIPConstant(CGContext::get_empty_context());
+  if (HIPSmith::HIPOptions::hip_managed()) {
+    int num_managed = rnd_upto(max_gen);
+    for (int i = 0; i < num_managed; i++) {
+      VariableSelector::GenerateHIPManaged(CGContext::get_empty_context());
+    }
   }
 
   // csmith didnt expect anything to be generated before this so reset its

@@ -31,6 +31,8 @@ class HIPOptions {
   DEFINE_HIPFLAG(vectors, bool)
   DEFINE_HIPFLAG(hip_consts, bool)
   DEFINE_HIPFLAG(hip_shared, bool)
+  DEFINE_HIPFLAG(hip_managed, bool)
+
 #undef DEFINE_HIPFLAG
 
   static void set_default_settings();

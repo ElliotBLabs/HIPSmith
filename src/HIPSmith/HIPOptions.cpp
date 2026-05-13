@@ -18,6 +18,7 @@ DEFINE_HIPFLAG(is_emitting_device_code, bool, false)
 DEFINE_HIPFLAG(vectors, bool, false)
 DEFINE_HIPFLAG(hip_consts, bool, false)
 DEFINE_HIPFLAG(hip_shared, bool, false)
+DEFINE_HIPFLAG(hip_managed, bool, false)
 #undef DEFINE_HIPFLAG
 
 void HIPOptions::set_default_settings() {
@@ -28,6 +29,7 @@ void HIPOptions::set_default_settings() {
   vectors_ = false;
   hip_consts_ = false;
   hip_shared_ = false;
+  hip_managed_ = false;
 }
 
 void HIPOptions::ResolveCGOptions() {
