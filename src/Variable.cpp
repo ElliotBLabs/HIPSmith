@@ -504,6 +504,10 @@ bool Variable::is_hip_const(void) const {
   return (name.find("hip_const_") == 0);
 }
 
+bool Variable::is_hip_managed(void) const {
+  return (name.find("hip_managed_") == 0);
+}
+
 // --------------------------------------------------------------
 bool Variable::is_global(void) const {
   if (is_field_var()) {

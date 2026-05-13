@@ -35,8 +35,8 @@ class HIPOutputMgr : public OutputMgr {
   // a hash of the output
   void OutputEntryFunction(Globals &globals);
 
-  // will output HIP global constants if they are being generated
-  void OutputHipConsts();
+  // output HIP constant and managed memory
+  void OutputHipGlobals();
 };
 
 }  // namespace HIPSmith

@@ -41,7 +41,7 @@ void Globals::OutputStructDefinition(std::ostream &out) {
   struct_type_->Output(out);
   out << " {" << std::endl;
   for (Variable *var : global_vars_) {
-    if (var->is_hip_const()) continue;
+    if (var->is_hip_const() || var->is_hip_managed()) continue;
     // Need this check, or we will output arrays twice.
     if (var->isArray && dynamic_cast<ArrayVariable *>(var)->collective) {
       continue;
@@ -70,7 +70,7 @@ void Globals::OutputStructInit(std::ostream &out) {
   out << " " << local_name2 << " = {" << std::endl;
 
   for (Variable *var : global_vars_) {
-    if (var->is_hip_const()) continue;
+    if (var->is_hip_const() || var->is_hip_managed()) continue;
     // prevents arrays being printed twice
     if (var->isArray) {
       ArrayVariable *var_array = dynamic_cast<ArrayVariable *>(var);
@@ -141,7 +141,7 @@ void Globals::ModifyGlobalVariableReferences() {
   // variable (eugghhh).
   std::vector<std::string> names;
   for (Variable *var : global_vars_) {
-    if (var->is_hip_const()) continue;
+    if (var->is_hip_const() || var->is_hip_managed()) continue;
     names.push_back(var->name);
     *const_cast<std::string *>(&var->name) =
         struct_var_->name + "->" + var->name;
@@ -156,7 +156,7 @@ void Globals::ModifyGlobalVariableReferences() {
   // variables.
   // Variable::is_global() is unreliable.
   for (Variable *var : *VariableSelector::GetAllVariables()) {
-    if (var->is_hip_const()) continue;
+    if (var->is_hip_const() || var->is_hip_managed()) continue;
     if (var->name.find("g_") == 0) {
       *const_cast<std::string *>(&var->name) =
           struct_var_->name + "->" + var->name;
@@ -184,7 +184,7 @@ void Globals::CreateGlobalStruct() {
   std::vector<CVQualifiers> qfers;
   std::vector<int> bitfield_len;
   for (Variable *var : global_vars_) {
-    if (var->is_hip_const()) continue;
+    if (var->is_hip_const() || var->is_hip_managed()) continue;
     types.push_back(var->type);
     qfers.push_back(var->qfer);
     bitfield_len.push_back(-1);

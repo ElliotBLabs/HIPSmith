@@ -144,12 +144,16 @@ std::string Vector::build_initializer_str(
   std::string ret;
   ret.reserve(1000);
 
-  // Build the HIP specific constructor prefix (e.g., make_int4)
-  ret.append("make_");
-  std::stringstream ss_type;
-  OutputVectorType(ss_type, type, sizes[0]);
-  ret.append(ss_type.str());
-  ret.append("(");
+  if (is_hip_managed()) {
+    ret.append("{");
+  } else {
+    // Build the HIP specific constructor prefix (e.g., make_int4)
+    ret.append("make_");
+    std::stringstream ss_type;
+    OutputVectorType(ss_type, type, sizes[0]);
+    ret.append(ss_type.str());
+    ret.append("(");
+  }
 
   // Populate the constructor strictly with scalar elements.
   // Nested initialization is removed for HIP compatibility.
@@ -161,7 +165,13 @@ std::string Vector::build_initializer_str(
 
     if (idx < sizes[0] - 1) ret.append(", ");
   }
-  ret.append(")");
+
+  if (is_hip_managed()) {
+    ret.append("}");
+  } else {
+    ret.append(")");
+  }
+
   return ret;
 }
 
