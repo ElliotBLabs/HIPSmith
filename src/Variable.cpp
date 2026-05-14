@@ -512,6 +512,16 @@ bool Variable::is_hip_device(void) const {
   return (name.find("hip_device_") == 0);
 }
 
+bool Variable::is_hip_builtin(void) const {
+  static const std::vector<std::string> hip_builtins = {
+      "threadIdx.x", "threadIdx.y", "threadIdx.z", "blockIdx.x", "blockIdx.y",
+      "blockIdx.z",  "blockDim.x",  "blockDim.y",  "blockDim.z", "gridDim.x",
+      "gridDim.y",   "gridDim.z",   "warpSize"};
+
+  return std::find(hip_builtins.begin(), hip_builtins.end(), name) !=
+         hip_builtins.end();
+}
+
 // --------------------------------------------------------------
 bool Variable::is_global(void) const {
   if (is_field_var()) {

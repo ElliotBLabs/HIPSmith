@@ -25,9 +25,11 @@ void HIPProgramGenerator::goGenerator() {
   // outputting the program.
   HIPExpression::InitProbabilityTable();
   Vector::GenerateVectorTypes();
+
   GenerateAllTypes();
 
   GenerateHIPGlobals();
+  GenerateHIPBuiltins();
 
   GenerateFunctions();
   output_mgr_->Output();
@@ -49,6 +51,7 @@ void HIPProgramGenerator::GenerateHIPGlobals() {
     for (int i = 0; i < num_consts; i++) {
       VariableSelector::GenerateHIPConstant(CGContext::get_empty_context());
     }
+    reset_gensym();
   }
 
   if (HIPSmith::HIPOptions::hip_managed()) {
@@ -56,6 +59,7 @@ void HIPProgramGenerator::GenerateHIPGlobals() {
     for (int i = 0; i < num_managed; i++) {
       VariableSelector::GenerateHIPManaged(CGContext::get_empty_context());
     }
+    reset_gensym();
   }
 
   if (HIPSmith::HIPOptions::hip_device()) {
@@ -63,11 +67,14 @@ void HIPProgramGenerator::GenerateHIPGlobals() {
     for (int i = 0; i < num_device; i++) {
       VariableSelector::GenerateHIPDeviceVar(CGContext::get_empty_context());
     }
+    reset_gensym();
   }
+}
 
-  // csmith didnt expect anything to be generated before this so reset its
-  // symbol generator
-  reset_gensym();
+void HIPProgramGenerator::GenerateHIPBuiltins() {
+  if (HIPOptions::hip_builtins()) {
+    VariableSelector::GenerateHIPBuiltins(CGContext::get_empty_context());
+  }
 }
 
 }  // namespace HIPSmith

@@ -33,6 +33,7 @@ class HIPOptions {
   DEFINE_HIPFLAG(hip_shared, bool)
   DEFINE_HIPFLAG(hip_managed, bool)
   DEFINE_HIPFLAG(hip_device, bool)
+  DEFINE_HIPFLAG(hip_builtins, bool)
 
 #undef DEFINE_HIPFLAG
 

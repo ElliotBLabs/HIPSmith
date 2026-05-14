@@ -295,6 +295,12 @@ bool VariableSelector::is_eligible_var(const Variable* var, int deref_level,
   if (deref_level != 0 && var->name.find("comm_") != string::npos) {
     return false;
   }
+
+  // if deref_level is negative it is trying to take an address
+  // we block that from happening for hip builtins
+  if (deref_level < 0 && var->is_hip_builtin()) {
+    return false;
+  }
   return true;
 }
 
@@ -729,6 +735,38 @@ Variable* VariableSelector::GenerateHIPManaged(const CGContext& cg_context) {
   var_created = true;
 
   return var;
+}
+void VariableSelector::GenerateHIPBuiltins(const CGContext& cg_context) {
+  // it represents an integer type
+  const Type& int_type = Type::get_simple_type(eInt);
+
+  // we treat it like a const as they are read only
+  CVQualifiers var_qfer;
+  var_qfer.add_qualifiers(true, false);
+
+  // all the builtins
+  std::vector<std::string> builtins = {
+      "threadIdx.x", "threadIdx.y", "threadIdx.z", "blockIdx.x", "blockIdx.y",
+      "blockIdx.z",  "blockDim.x",  "blockDim.y",  "blockDim.z", "gridDim.x",
+      "gridDim.y",   "gridDim.z",   "warpSize"};
+
+  for (const std::string& name : builtins) {
+    // this should not be marked as a HIP shared variable
+    Variable* var =
+        Variable::CreateVariable(name, &int_type, NULL, &var_qfer, false);
+
+    GlobalList.push_back(var);
+
+    FactMgr* fm = get_fact_mgr(&cg_context);
+    fm->add_new_var_fact_and_update_inout_maps(NULL, var->get_collective());
+
+    if (cg_context.get_current_func()) {
+      cg_context.get_current_func()->new_globals.push_back(var);
+    }
+
+    GlobalNonvolatilesList.push_back(var);
+    var_created = true;
+  }
 }
 
 Variable* VariableSelector::eager_create_global_struct(

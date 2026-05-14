@@ -82,6 +82,8 @@ std::ostream &HIPOutputMgr::get_main_out() { return out_; }
 void HIPOutputMgr::OutputHipGlobals() {
   std::ostream &out = get_main_out();
   for (Variable *var : *VariableSelector::GetGlobalVariables()) {
+    if (var->is_hip_builtin()) continue;
+
     // skip csmiths duplicate itemised arrays
     if (var->isArray) {
       ArrayVariable *av = dynamic_cast<ArrayVariable *>(var);
@@ -132,7 +134,9 @@ void HIPOutputMgr::OutputHipGlobals() {
 
     for (Variable *var : *VariableSelector::GetGlobalVariables()) {
       // only do this delayed init for HIP const and HIP device memory
-      if (!(var->is_hip_const() || var->is_hip_device())) continue;
+      if (!(var->is_hip_const() || var->is_hip_device() ||
+            var->is_hip_builtin()))
+        continue;
 
       // do not use duplicated itemized arrays
       if (var->isArray) {
@@ -253,10 +257,12 @@ void HIPOutputMgr::OutputEntryFunction(Globals &globals) {
 
   driver_out << "\nint main(int argc, const char* argv[]) {\n";
 
-  if (HIPSmith::HIPOptions::hip_managed() || HIPOptions::hip_device()) {
+  if (HIPSmith::HIPOptions::hip_managed() || HIPOptions::hip_device() ||
+      HIPOptions::hip_builtins()) {
     output_tab(driver_out, 1);
     driver_out << "// argc should be 1 so block size=1 enforced due to using "
-                  "HIP's managed memory OR HIP device memory"
+                  "HIP's managed memory OR HIP device memory OR hip builtins "
+                  "like threadID"
                << std::endl;
     output_tab(driver_out, 1);
     driver_out << "const unsigned int num_threads = argc;" << std::endl;
@@ -268,10 +274,12 @@ void HIPOutputMgr::OutputEntryFunction(Globals &globals) {
   // HIP shared memory requires block size is 1 or we will get data races
   // across the block
   if (HIPSmith::HIPOptions::hip_shared() ||
-      HIPSmith::HIPOptions::hip_managed() || HIPOptions::hip_device()) {
+      HIPSmith::HIPOptions::hip_managed() || HIPOptions::hip_device() ||
+      HIPOptions::hip_builtins()) {
     output_tab(driver_out, 1);
     driver_out << "// argc should be 1 so block size=1 enforced due to using "
-                  "HIP's shared memory, device memory or managed memory."
+                  "HIP's shared memory, device memory or managed memory OR hip "
+                  "builtins like threadID"
                << std::endl;
     output_tab(driver_out, 1);
     driver_out << "const unsigned int block_size = argc;" << std::endl;
