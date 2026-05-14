@@ -41,6 +41,8 @@ class HIPProgramGenerator : public AbsProgramGenerator {
 
   // generate __constant__ and __managed__ globals
   void GenerateHIPGlobals();
+
+  void GenerateHIPBuiltins();
 };
 
 }  // namespace HIPSmith
