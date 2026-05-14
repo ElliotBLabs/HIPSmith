@@ -411,7 +411,7 @@ Variable* VariableSelector::choose_var(
     vector<Variable*> vars, Effect::Access access, const CGContext& cg_context,
     const Type* type, const CVQualifiers* qfer, eMatchType mt,
     const vector<const Variable*>& invalid_vars, bool no_bitfield,
-    bool no_expand_struct_union, bool allow_hip_shared_address) {
+    bool no_expand_struct_union) {
   vector<Variable*> ok_vars;
   vector<Variable*>::iterator i;
 
@@ -433,12 +433,6 @@ Variable* VariableSelector::choose_var(
       continue;
     }
     if (qfer && !qfer->match_indirect((*i)->qfer)) {
-      continue;
-    }
-
-    // Do a chain of checks for recursive structures to check if it is HIP
-    // shared memory
-    if (!allow_hip_shared_address && has_hip_shared_ancestor(*i)) {
       continue;
     }
 
@@ -517,13 +511,12 @@ Variable* VariableSelector::create_and_initialize(
     if (CGOptions::strict_const_arrays()) {
       init = Constant::make_random(simple_type);
     } else {
-      init = make_init_value(access, cg_context, simple_type, qfer, blk,
-                             isHipShared);
+      init = make_init_value(access, cg_context, simple_type, qfer, blk);
     }
     var = create_array_and_itemize(blk, name, cg_context, t, init, qfer,
                                    isHipShared);
   } else {
-    init = make_init_value(access, cg_context, t, qfer, blk, isHipShared);
+    init = make_init_value(access, cg_context, t, qfer, blk);
     var = new_variable(name, t, init, qfer, isHipShared);
   }
   assert(var);
@@ -907,8 +900,8 @@ Block* VariableSelector::lower_block_for_vars(const vector<Block*>& blks,
 Expression* VariableSelector::make_init_value(Effect::Access access,
                                               const CGContext& cg_context,
                                               const Type* t,
-                                              const CVQualifiers* qf, Block* b,
-                                              bool allow_hip_shared_address) {
+                                              const CVQualifiers* qf,
+                                              Block* b) {
   assert(qf && qf->sanity_check(t));
   CVQualifiers qfer(*qf);
   // the initialzer should always be less restricting than the variable to be
@@ -937,11 +930,11 @@ Expression* VariableSelector::make_init_value(Effect::Access access,
   if (!b && CGOptions::ccomp()) {
     get_all_array_vars(dummy);
     var = choose_var(vars, access, cg_context, type, &qfer, eExact, dummy, true,
-                     true, allow_hip_shared_address);
+                     true);
   } else {
     if (!CGOptions::addr_taken_of_locals()) get_all_local_vars(b, dummy);
     var = choose_var(vars, access, cg_context, type, &qfer, eExact, dummy, true,
-                     false, allow_hip_shared_address);
+                     false);
   }
   ERROR_GUARD(NULL);
 
@@ -967,14 +960,9 @@ Expression* VariableSelector::make_init_value(Effect::Access access,
     // create a local if it's not a volatile, and it's a pointer, and block is
     // specified
 
-    // we want to prevent a local varaible to be generated and then take the
-    // address of it and be used as an initial value if we are in a setting
-    // where HIP addresses cannot be used as initialiser values
-    bool force_no_hip_shared = !allow_hip_shared_address;
-
     if (CGOptions::addr_taken_of_locals() && use_local) {
-      var = GenerateNewParentLocal(*b, Effect::READ, cg_context, tt,
-                                   &qfer_deref, force_no_hip_shared);
+      var =
+          GenerateNewParentLocal(*b, Effect::READ, cg_context, tt, &qfer_deref);
       ERROR_GUARD(NULL);
       Bookkeeper::record_volatile_access(
           var, var->type->get_indirect_level() - tt->get_indirect_level(),
@@ -995,8 +983,7 @@ Expression* VariableSelector::make_init_value(Effect::Access access,
 
     // Assumes it can generate anything, best we can do atm is try again ...
     if (var->isArray && static_cast<ArrayVariable*>(var)->isVector)
-      return make_init_value(access, cg_context, t, qf, b,
-                             allow_hip_shared_address);
+      return make_init_value(access, cg_context, t, qf, b);
   }
 
   assert(var);
@@ -1004,9 +991,11 @@ Expression* VariableSelector::make_init_value(Effect::Access access,
 }
 
 // --------------------------------------------------------------
-Variable* VariableSelector::GenerateNewParentLocal(
-    Block& block, Effect::Access access, const CGContext& cg_context,
-    const Type* t, const CVQualifiers* qfer, bool force_no_hip_shared) {
+Variable* VariableSelector::GenerateNewParentLocal(Block& block,
+                                                   Effect::Access access,
+                                                   const CGContext& cg_context,
+                                                   const Type* t,
+                                                   const CVQualifiers* qfer) {
   ERROR_GUARD(NULL);
   assert(t);
   // if this is for a struct/union with volatile field(s), create a global
@@ -1032,7 +1021,7 @@ Variable* VariableSelector::GenerateNewParentLocal(
   // fixed 20% chance of being shared unless we are being forced to not generate
   // them
   bool isHipShared = false;
-  if (!force_no_hip_shared && HIPSmith::HIPOptions::hip_shared()) {
+  if (HIPSmith::HIPOptions::hip_shared()) {
     isHipShared = pure_rnd_flipcoin(20);
   }
 
