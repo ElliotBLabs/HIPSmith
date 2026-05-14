@@ -82,8 +82,7 @@ class VariableSelector {
                               const CVQualifiers* qfer, eMatchType mt,
                               const vector<const Variable*>& invalid_vars,
                               bool no_bitfield = false,
-                              bool no_expand_struct = false,
-                              bool allow_hip_shared_address = true);
+                              bool no_expand_struct = false);
   static Variable* select_deref_pointer(
       Effect::Access access, const CGContext& cg_context, const Type* type,
       const CVQualifiers* qfer, const vector<const Variable*>& invalid_vars);
@@ -95,8 +94,7 @@ class VariableSelector {
 
   static Expression* make_init_value(Effect::Access access,
                                      const CGContext& cg_context, const Type* t,
-                                     const CVQualifiers* qfer, Block* b,
-                                     bool allow_hip_shared_address = false);
+                                     const CVQualifiers* qfer, Block* b);
   static ArrayVariable* create_mutated_array_var(
       const ArrayVariable* av, const vector<const Expression*>& new_indices);
   static const Variable* select_must_use_var(Effect::Access access,
@@ -183,8 +181,7 @@ class VariableSelector {
   static Variable* GenerateNewParentLocal(Block& block, Effect::Access access,
                                           const CGContext& cg_context,
                                           const Type* type,
-                                          const CVQualifiers* qfer,
-                                          bool force_no_hip_shared = false);
+                                          const CVQualifiers* qfer);
 
   static void get_all_array_vars(vector<const Variable*>& array_vars);
 

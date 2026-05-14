@@ -179,7 +179,7 @@ ArrayVariable* ArrayVariable::CreateArrayVariable(
         // If it isn't shared, it uses a static initialiser, so HIP shared
         // addresses are not safe
         e = VariableSelector::make_init_value(Effect::READ, cg_context, type,
-                                              qfer, blk, isHipShared);
+                                              qfer, blk);
       }
       var->add_init_value(e);
     }
