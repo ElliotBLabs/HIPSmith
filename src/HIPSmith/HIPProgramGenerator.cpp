@@ -58,6 +58,13 @@ void HIPProgramGenerator::GenerateHIPGlobals() {
     }
   }
 
+  if (HIPSmith::HIPOptions::hip_device()) {
+    int num_device = rnd_upto(max_gen);
+    for (int i = 0; i < num_device; i++) {
+      VariableSelector::GenerateHIPDeviceVar(CGContext::get_empty_context());
+    }
+  }
+
   // csmith didnt expect anything to be generated before this so reset its
   // symbol generator
   reset_gensym();

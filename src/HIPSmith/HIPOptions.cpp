@@ -19,6 +19,7 @@ DEFINE_HIPFLAG(vectors, bool, false)
 DEFINE_HIPFLAG(hip_consts, bool, false)
 DEFINE_HIPFLAG(hip_shared, bool, false)
 DEFINE_HIPFLAG(hip_managed, bool, false)
+DEFINE_HIPFLAG(hip_device, bool, false)
 #undef DEFINE_HIPFLAG
 
 void HIPOptions::set_default_settings() {
@@ -30,6 +31,7 @@ void HIPOptions::set_default_settings() {
   hip_consts_ = false;
   hip_shared_ = false;
   hip_managed_ = false;
+  hip_device_ = false;
 }
 
 void HIPOptions::ResolveCGOptions() {

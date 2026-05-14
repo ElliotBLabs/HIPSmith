@@ -508,6 +508,10 @@ bool Variable::is_hip_managed(void) const {
   return (name.find("hip_managed_") == 0);
 }
 
+bool Variable::is_hip_device(void) const {
+  return (name.find("hip_device_") == 0);
+}
+
 // --------------------------------------------------------------
 bool Variable::is_global(void) const {
   if (is_field_var()) {

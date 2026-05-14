@@ -88,9 +88,15 @@ void HIPOutputMgr::OutputHipGlobals() {
       if (av && !av->collective) continue;
     }
 
-    if (var->is_hip_const()) {
+    // both var and device use the init line and then later copy semantics
+    if (var->is_hip_const() || var->is_hip_device()) {
       // output the global defintion of the variable
-      out << "__constant__ ";
+      if (var->is_hip_const()) {
+        out << "__constant__ ";
+      } else {
+        out << "__device__ ";
+      }
+
       var->OutputDecl(out);
       out << ";" << std::endl;
 
@@ -121,12 +127,12 @@ void HIPOutputMgr::OutputHipGlobals() {
   out << std::endl;
 
   // we need to setup the HIP const special setup as cannot inline init them
-  if (HIPOptions::hip_consts()) {
-    out << "void setup_hip_constants() {" << std::endl;
+  if (HIPOptions::hip_consts() || HIPOptions::hip_device()) {
+    out << "void setup_hip_globals() {" << std::endl;
 
     for (Variable *var : *VariableSelector::GetGlobalVariables()) {
-      // skip other global vars that arent hip consts
-      if (!var->is_hip_const()) continue;
+      // only do this delayed init for HIP const and HIP device memory
+      if (!(var->is_hip_const() || var->is_hip_device())) continue;
 
       // do not use duplicated itemized arrays
       if (var->isArray) {
@@ -178,10 +184,12 @@ void HIPOutputMgr::OutputEntryFunction(Globals &globals) {
   // ---------------------------------------------------------
   // Generated Kernel
   // ---------------------------------------------------------
-  out << "// ------------------------------------------------------------------"
+  out << "// "
+         "------------------------------------------------------------------"
       << std::endl;
   out << "// Kernel" << std::endl;
-  out << "// ------------------------------------------------------------------"
+  out << "// "
+         "------------------------------------------------------------------"
       << std::endl;
   out << "__global__ void hipsmith_kernel(uint64_t *results) {" << std::endl;
 
@@ -224,10 +232,12 @@ void HIPOutputMgr::OutputEntryFunction(Globals &globals) {
   std::ofstream driver_out("HIP-driver.cpp");
   driver_out
       << "// "
-         "------------------------------------------------------------------\n"
+         "------------------------------------------------------------------"
+         "\n"
       << "// Host Main\n"
       << "// "
-         "------------------------------------------------------------------\n"
+         "------------------------------------------------------------------"
+         "\n"
       << "#include <hip/hip_runtime.h>\n"
       << "#include <iostream>\n"
       << "#include <cstdint>\n"
@@ -236,16 +246,17 @@ void HIPOutputMgr::OutputEntryFunction(Globals &globals) {
       << "#include \"HIPSmith.h\"\n"
       << "extern __global__ void hipsmith_kernel(uint64_t *results);\n";
 
-  if (HIPSmith::HIPOptions::hip_consts()) {
-    driver_out << "extern void setup_hip_constants();\n";
+  if (HIPSmith::HIPOptions::hip_consts() ||
+      HIPSmith::HIPOptions::hip_device()) {
+    driver_out << "extern void setup_hip_globals();\n";
   }
 
   driver_out << "\nint main(int argc, const char* argv[]) {\n";
 
-  if (HIPSmith::HIPOptions::hip_managed()) {
+  if (HIPSmith::HIPOptions::hip_managed() || HIPOptions::hip_device()) {
     output_tab(driver_out, 1);
     driver_out << "// argc should be 1 so block size=1 enforced due to using "
-                  "HIP's managed memory."
+                  "HIP's managed memory OR HIP device memory"
                << std::endl;
     output_tab(driver_out, 1);
     driver_out << "const unsigned int num_threads = argc;" << std::endl;
@@ -256,10 +267,11 @@ void HIPOutputMgr::OutputEntryFunction(Globals &globals) {
 
   // HIP shared memory requires block size is 1 or we will get data races
   // across the block
-  if (HIPSmith::HIPOptions::hip_shared()) {
+  if (HIPSmith::HIPOptions::hip_shared() ||
+      HIPSmith::HIPOptions::hip_managed() || HIPOptions::hip_device()) {
     output_tab(driver_out, 1);
     driver_out << "// argc should be 1 so block size=1 enforced due to using "
-                  "HIP's shared memory."
+                  "HIP's shared memory, device memory or managed memory."
                << std::endl;
     output_tab(driver_out, 1);
     driver_out << "const unsigned int block_size = argc;" << std::endl;
@@ -278,9 +290,9 @@ void HIPOutputMgr::OutputEntryFunction(Globals &globals) {
       << std::endl;
   driver_out << std::endl;
 
-  if (HIPSmith::HIPOptions::hip_consts()) {
+  if (HIPSmith::HIPOptions::hip_consts() || HIPOptions::hip_device()) {
     output_tab(driver_out, 1);
-    driver_out << "setup_hip_constants();" << std::endl;
+    driver_out << "setup_hip_globals();" << std::endl;
     driver_out << std::endl;
   }
 

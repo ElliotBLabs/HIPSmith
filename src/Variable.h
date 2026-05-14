@@ -86,6 +86,7 @@ class Variable {
   virtual bool is_global(void) const;
   virtual bool is_hip_const(void) const;
   virtual bool is_hip_managed(void) const;
+  virtual bool is_hip_device(void) const;
   virtual bool is_local(void) const;
   virtual bool is_visible_local(const Block* blk) const;
   virtual size_t get_dimension(void) const { return 0; }
