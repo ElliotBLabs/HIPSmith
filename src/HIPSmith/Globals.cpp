@@ -162,6 +162,7 @@ void Globals::ModifyGlobalVariableReferences() {
   // variables.
   // Variable::is_global() is unreliable.
   for (Variable *var : *VariableSelector::GetAllVariables()) {
+    FixAllIndexing(var);
     if (var->is_hip_const() || var->is_hip_managed() || var->is_hip_device() ||
         var->is_hip_builtin())
       continue;
@@ -172,8 +173,6 @@ void Globals::ModifyGlobalVariableReferences() {
         ModifyGlobalAggregateVariableReferences(var);
       }
     }
-
-    FixAllIndexing(var);
   }
 }
 

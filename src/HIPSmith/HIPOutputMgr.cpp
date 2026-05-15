@@ -134,9 +134,7 @@ void HIPOutputMgr::OutputHipGlobals() {
 
     for (Variable *var : *VariableSelector::GetGlobalVariables()) {
       // only do this delayed init for HIP const and HIP device memory
-      if (!(var->is_hip_const() || var->is_hip_device() ||
-            var->is_hip_builtin()))
-        continue;
+      if (!(var->is_hip_const() || var->is_hip_device())) continue;
 
       // do not use duplicated itemized arrays
       if (var->isArray) {
