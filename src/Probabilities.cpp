@@ -755,6 +755,7 @@ void Probabilities::set_default_statement_prob() {
     SET_SINGLE_NAME("statement_goto_prob", Goto, 0);
     SET_SINGLE_NAME("statement_arrayop_prob", ArrayOp, 0);
   }
+  SET_SINGLE_NAME("statement_hipstatement_prob", HIPStatement, 5);
   // use the remaining probabilities for assignments
   SET_SINGLE_NAME("statement_assign_prob", Assign, 100);
 

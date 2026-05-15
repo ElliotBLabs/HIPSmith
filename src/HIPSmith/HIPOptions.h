@@ -34,6 +34,7 @@ class HIPOptions {
   DEFINE_HIPFLAG(hip_managed, bool)
   DEFINE_HIPFLAG(hip_device, bool)
   DEFINE_HIPFLAG(hip_builtins, bool)
+  DEFINE_HIPFLAG(hip_sync, bool)
 
 #undef DEFINE_HIPFLAG
 

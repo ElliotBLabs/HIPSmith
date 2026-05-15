@@ -15,15 +15,14 @@ class VectorFilter;
 
 namespace HIPSmith {
 
-// All HIP related expressions derive from this.
-// The type of HIP expression to use is handled here, instead of in
-// base Csmith's Expression class. So we have our own probability table.
+// All HIP specific expressions derive from this.
 class HIPExpression : public Expression {
  public:
   // Dynamic type information.
   enum HIPExpressionType {
     kNone = 0,  // Sentinel value.
-    kVector     // Restricted exclusively to vectors for HIPSmith.
+    kVector,
+    kBuiltIn  // built in HIP expressions
   };
 
   explicit HIPExpression(HIPExpressionType type)

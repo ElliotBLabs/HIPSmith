@@ -80,6 +80,7 @@ enum eStatementType {
   eContinue,
   eBreak,
   eGoto,
+  eHIPStatement,
   eArrayOp
   //  ..more?  try, catch, throw
   //	eHash,

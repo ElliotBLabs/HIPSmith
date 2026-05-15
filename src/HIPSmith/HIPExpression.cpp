@@ -2,7 +2,9 @@
 
 #include "CGContext.h"
 #include "CGOptions.h"
+#include "ExpressionFuncall.h"
 #include "HIPSmith/ExpressionVector.h"
+#include "HIPSmith/FunctionInvocationBuiltIn.h"
 #include "HIPSmith/HIPOptions.h"
 #include "ProbabilityTable.h"
 #include "Type.h"
@@ -48,9 +50,20 @@ Expression *HIPExpression::make_random(CGContext &cg_context, const Type *type,
   Expression *expr = NULL;
   switch (tt) {
     case kVector:
-      // Route directly to your vector expression generator
       expr = ExpressionVector::make_random(cg_context, type, qfer, 0);
       break;
+    case kBuiltIn: {
+      // prevent max depth recursions 
+      if (cg_context.expr_depth + 1 > CGOptions::max_expr_depth()) return NULL;
+
+      // this can return null if we cannot provide a built in with the correct return for example
+      FunctionInvocation *fi =
+          FunctionInvocationHIPBuiltIn::make_random(cg_context, *type);
+      if (fi != NULL) {
+        expr = new ExpressionFuncall(*fi);
+      }
+      break;
+    }
     default:
       assert(false);
   }
@@ -59,8 +72,12 @@ Expression *HIPExpression::make_random(CGContext &cg_context, const Type *type,
 
 void HIPExpression::InitProbabilityTable() {
   hip_expr_table = new DistributionTable();
-  hip_expr_table->add_entry(kVector, 100);
+  hip_expr_table->add_entry(kVector, 90);
+  hip_expr_table->add_entry(kBuiltIn, 10);
   ExpressionVector::InitProbabilityTable();
+
+  // we hook into custom function invoations via hip expressions
+  FunctionInvocationHIPBuiltIn::InitTables();
 }
 
 Expression *make_random(CGContext &cg_context, const Type *type,

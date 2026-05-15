@@ -256,11 +256,11 @@ void HIPOutputMgr::OutputEntryFunction(Globals &globals) {
   driver_out << "\nint main(int argc, const char* argv[]) {\n";
 
   if (HIPSmith::HIPOptions::hip_managed() || HIPOptions::hip_device() ||
-      HIPOptions::hip_builtins()) {
+      HIPOptions::hip_builtins() || HIPOptions::hip_sync()) {
     output_tab(driver_out, 1);
     driver_out << "// argc should be 1 so block size=1 enforced due to using "
                   "HIP's managed memory OR HIP device memory OR hip builtins "
-                  "like threadID"
+                  "like threadID or thread sync primitives"
                << std::endl;
     output_tab(driver_out, 1);
     driver_out << "const unsigned int num_threads = argc;" << std::endl;
@@ -273,11 +273,11 @@ void HIPOutputMgr::OutputEntryFunction(Globals &globals) {
   // across the block
   if (HIPSmith::HIPOptions::hip_shared() ||
       HIPSmith::HIPOptions::hip_managed() || HIPOptions::hip_device() ||
-      HIPOptions::hip_builtins()) {
+      HIPOptions::hip_builtins() || HIPOptions::hip_sync()) {
     output_tab(driver_out, 1);
     driver_out << "// argc should be 1 so block size=1 enforced due to using "
                   "HIP's shared memory, device memory or managed memory OR hip "
-                  "builtins like threadID"
+                  "builtins like threadID or thread sync primitives"
                << std::endl;
     output_tab(driver_out, 1);
     driver_out << "const unsigned int block_size = argc;" << std::endl;
