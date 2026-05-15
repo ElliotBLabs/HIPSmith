@@ -11,6 +11,7 @@
 #include "Function.h"
 #include "HIPSmith/HIPExpression.h"
 #include "HIPSmith/HIPOptions.h"
+#include "HIPSmith/HIPStatement.h"
 #include "HIPSmith/Vector.h"
 #include "Type.h"
 
@@ -24,6 +25,7 @@ void HIPProgramGenerator::goGenerator() {
   // This creates the random program, the rest handles post-processing and
   // outputting the program.
   HIPExpression::InitProbabilityTable();
+  HIPStatement::InitProbabilityTable();
   Vector::GenerateVectorTypes();
 
   GenerateAllTypes();

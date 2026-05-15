@@ -51,6 +51,11 @@ int main(int argc, char **argv) {
       continue;
     }
 
+    if (strcmp(argv[idx], "--hip-sync") == 0) {
+      HIPSmith::HIPOptions::hip_sync(true);
+      continue;
+    }
+
     if (strcmp(argv[idx], "--seed") == 0) {
       if (idx + 1 >= argc) {
         std::cerr << "Error: --seed requires a value." << std::endl;

@@ -225,6 +225,9 @@ add_executable(HIPSmith
     src/HIPSmith/HIPExpression.cpp
     src/HIPSmith/HIPVariable.cpp
     src/HIPSmith/Vector.cpp
+    src/HIPSmith/HIPStatement.cpp
+    src/HIPSmith/StatementHIPSync.cpp
+    src/HIPSmith/FunctionInvocationBuiltIn.cpp
 )
 
 find_program(M4_EXECUTABLE m4 DOC "The M4 macro processor")

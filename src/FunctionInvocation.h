@@ -97,7 +97,7 @@ enum eBinaryOps {
 };
 #define MAX_BINARY_OP ((eBinaryOps)(eLShift + 1))
 
-enum eInvocationType { eBinaryPrim, eUnaryPrim, eFuncCall };
+enum eInvocationType { eBinaryPrim, eUnaryPrim, eFuncCall, eHIPBuiltin };
 
 class FunctionInvocation {
  public:

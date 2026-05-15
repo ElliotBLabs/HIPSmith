@@ -90,6 +90,10 @@ const Statement* Statement::failed_stm;
 
 AttributeGenerator Statement::label_attr_generator;
 
+namespace HIPSmith {
+Statement* make_random_st(CGContext& cg_context);
+}  // namespace HIPSmith
+
 ///////////////////////////////////////////////////////////////////////////////
 
 void InitializeLabelAttributes() {
@@ -302,6 +306,9 @@ Statement* Statement::make_random(CGContext& cg_context, eStatementType t) {
       break;
     case eArrayOp:
       s = StatementArrayOp::make_random(cg_context);
+      break;
+    case eHIPStatement:
+      s = HIPSmith::make_random_st(cg_context);
       break;
   }
 
