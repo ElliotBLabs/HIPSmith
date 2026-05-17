@@ -18,7 +18,7 @@ namespace HIPSmith {
 // Base class for HIP built-in functions
 class FunctionInvocationHIPBuiltIn : public FunctionInvocation {
  public:
-  enum BuiltInType { kSyncPredicates = 0 };
+  enum BuiltInType { kSyncPredicates = 0, kWarpVote };
 
   FunctionInvocationHIPBuiltIn(enum BuiltInType built_in_type, const Type& type)
       : FunctionInvocation(eHIPBuiltin, SafeOpFlags::make_dummy_flags()),
@@ -85,6 +85,47 @@ class FunctionInvocationHIPSyncBuiltIn : public FunctionInvocationHIPBuiltIn {
  private:
   enum BuiltIn built_in_;
   DISALLOW_COPY_AND_ASSIGN(FunctionInvocationHIPSyncBuiltIn);
+};
+
+// Specific implementation for the Warp Vote functions
+class FunctionInvocationHIPWarpVoteBuiltIn
+    : public FunctionInvocationHIPBuiltIn {
+ public:
+  enum BuiltIn {
+    kIdentity = 0,  // Sentinel
+    kAll,
+    kAny,
+    kBallot,
+    kActiveMask,
+    kAllSync,
+    kAnySync,
+    kBallotSync
+  };
+
+  FunctionInvocationHIPWarpVoteBuiltIn(enum BuiltIn built_in, const Type& type)
+      : FunctionInvocationHIPBuiltIn(kWarpVote, type), built_in_(built_in) {}
+  FunctionInvocationHIPWarpVoteBuiltIn(
+      FunctionInvocationHIPWarpVoteBuiltIn&& other) = default;
+  FunctionInvocationHIPWarpVoteBuiltIn& operator=(
+      FunctionInvocationHIPWarpVoteBuiltIn&& other) = default;
+  virtual ~FunctionInvocationHIPWarpVoteBuiltIn() {}
+
+  static FunctionInvocationHIPWarpVoteBuiltIn* make_random(
+      CGContext& cg_context, const Type& type);
+  static enum BuiltIn FunctionSelector(const Type& type,
+                                       std::vector<const Type*>* params);
+  static void InitTables();
+
+  FunctionInvocationHIPWarpVoteBuiltIn* clone() const override;
+  void OutputFuncName(std::ostream& out) const override;
+  void Output(std::ostream& out) const override;
+  const Type& GetParameterType(size_t idx) const override;
+
+  enum BuiltIn GetBuiltIn() const { return built_in_; }
+
+ private:
+  enum BuiltIn built_in_;
+  DISALLOW_COPY_AND_ASSIGN(FunctionInvocationHIPWarpVoteBuiltIn);
 };
 
 }  // namespace HIPSmith

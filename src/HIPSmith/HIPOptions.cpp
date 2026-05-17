@@ -22,6 +22,7 @@ DEFINE_HIPFLAG(hip_managed, bool, false)
 DEFINE_HIPFLAG(hip_device, bool, false)
 DEFINE_HIPFLAG(hip_builtins, bool, false)
 DEFINE_HIPFLAG(hip_sync, bool, false)
+DEFINE_HIPFLAG(hip_warp, bool, false)
 #undef DEFINE_HIPFLAG
 
 void HIPOptions::set_default_settings() {
