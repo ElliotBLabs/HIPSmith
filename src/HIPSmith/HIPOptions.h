@@ -36,6 +36,7 @@ class HIPOptions {
   DEFINE_HIPFLAG(hip_builtins, bool)
   DEFINE_HIPFLAG(hip_sync, bool)
   DEFINE_HIPFLAG(hip_warp, bool)
+  DEFINE_HIPFLAG(hip_warp_match, bool)
 
 #undef DEFINE_HIPFLAG
 

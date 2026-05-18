@@ -61,6 +61,16 @@ int main(int argc, char **argv) {
       continue;
     }
 
+    if (strcmp(argv[idx], "--hip-warp-match") == 0) {
+      HIPSmith::HIPOptions::hip_warp_match(true);
+      continue;
+    }
+
+    if (strcmp(argv[idx], "--small") == 0) {
+      HIPSmith::HIPOptions::small(true);
+      continue;
+    }
+
     if (strcmp(argv[idx], "--seed") == 0) {
       if (idx + 1 >= argc) {
         std::cerr << "Error: --seed requires a value." << std::endl;
