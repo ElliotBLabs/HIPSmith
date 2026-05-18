@@ -4,11 +4,16 @@
 #include <ostream>
 #include <vector>
 
+#include "Bookkeeper.h"
 #include "CGContext.h"
 #include "Expression.h"
+#include "ExpressionVariable.h"
 #include "HIPSmith/HIPOptions.h"
+#include "Lhs.h"
 #include "ProbabilityTable.h"
 #include "Type.h"
+#include "Variable.h"
+#include "VariableSelector.h"
 #include "VectorFilter.h"
 
 namespace HIPSmith {
@@ -16,6 +21,7 @@ namespace {
 
 DistributionTable *hip_sync_func_table = NULL;
 DistributionTable *hip_warp_vote_func_table = NULL;
+DistributionTable *hip_warp_match_func_table = NULL;
 
 const char *const kSyncNames[4] = {"",  // Sentinel
                                    "__syncthreads_count", "__syncthreads_and",
@@ -26,32 +32,33 @@ const char *const kWarpVoteNames[] = {
     "__all",      "__any",      "__ballot",     "__activemask",
     "__all_sync", "__any_sync", "__ballot_sync"};
 
+const char *const kWarpMatchNames[] = {"", "__match_any", "__match_all",
+                                       "__match_any_sync", "__match_all_sync"};
 }  // namespace
 
 // base class
 
 FunctionInvocationHIPBuiltIn *FunctionInvocationHIPBuiltIn::make_random(
     CGContext &cg_context, const Type &type) {
-  // we are a bit cheeky and allow any int type thing to get one of these and
-  // rely on implicit casting
   if (type.eType == eSimple) {
     int choice = rnd_upto(100);
-    if (choice < 50 && HIPOptions::hip_sync()) {
+    if (choice < 33 && HIPOptions::hip_sync()) {
       return FunctionInvocationHIPSyncBuiltIn::make_random(cg_context, type);
-    } else if (HIPOptions::hip_warp()) {
+    } else if (choice < 66 && HIPOptions::hip_warp()) {
       return FunctionInvocationHIPWarpVoteBuiltIn::make_random(cg_context,
                                                                type);
+    } else if (HIPOptions::hip_warp_match()) {
+      return FunctionInvocationHIPWarpMatchBuiltIn::make_random(cg_context,
+                                                                type);
     }
   }
-
-  // we do not have something that can return that type
   return NULL;
 }
 
 void FunctionInvocationHIPBuiltIn::InitTables() {
-  // init the tables associated with each special built in type
   FunctionInvocationHIPSyncBuiltIn::InitTables();
   FunctionInvocationHIPWarpVoteBuiltIn::InitTables();
+  FunctionInvocationHIPWarpMatchBuiltIn::InitTables();
 }
 
 void FunctionInvocationHIPBuiltIn::Output(std::ostream &out) const {
@@ -254,5 +261,183 @@ const Type &FunctionInvocationHIPWarpVoteBuiltIn::GetParameterType(
   return Type::get_simple_type(eInt);
 }
 // WARP Vote end stuff
+
+// WARP Match start
+
+FunctionInvocationHIPWarpMatchBuiltIn *
+FunctionInvocationHIPWarpMatchBuiltIn::make_random(CGContext &cg_context,
+                                                   const Type &type) {
+  // T can be 32-bit int or 64-bit int only for fuzzing
+  // no flots or doubles
+  const Type *possible_t_types[] = {&Type::get_simple_type(eInt),
+                                    &Type::get_simple_type(eLongLong)};
+  const Type *t_type = possible_t_types[rnd_upto(2)];
+
+  std::vector<const Type *> param_types;
+  enum BuiltIn func = FunctionSelector(type, &param_types, *t_type);
+
+  if (func == kIdentity) {
+    return NULL;
+  }
+
+  FunctionInvocationHIPWarpMatchBuiltIn *fi =
+      new FunctionInvocationHIPWarpMatchBuiltIn(func, type, *t_type);
+
+  for (size_t i = 0; i < param_types.size(); ++i) {
+    if ((func == kMatchAll && i == 1) || (func == kMatchAllSync && i == 2)) {
+      // 1. The predicate is ALWAYS a 32-bit integer, even if t_type is a 64-bit long long!
+      const Type *base_type = &Type::get_simple_type(eInt);
+
+      CVQualifiers qfer;
+      qfer.add_qualifiers(false, false);
+      std::vector<const Variable *> invalid_vars;
+
+      // find a local int/long long,
+      // or securely create and initialize a new one if none exists.
+      Variable *pred_var =
+          VariableSelector::select(Effect::WRITE, cg_context, base_type, &qfer,
+                                   invalid_vars, eExact, eParentLocal);
+
+      // 3. Ensure we didn't accidentally get a bitfield (can't take their
+      // address)
+      // if (!pred_var || pred_var->isBitfield_) {
+      //   delete fi;
+      //   return NULL;
+      // }
+
+      // 4. Create the AST node.
+      // Passing the scalar variable `pred_var` but requesting `param_types[i]`
+      // (the pointer type) inherently generates an indirect_level of -1,
+      // printing as `&pred_var`.
+      ExpressionVariable *addr_expr =
+          new ExpressionVariable(*pred_var, param_types[i]);
+
+      // 5. Update Csmith's dataflow tracking so it knows the address escaped
+      Bookkeeper::record_address_taken(pred_var);
+      Bookkeeper::record_volatile_access(pred_var, -1, false);
+
+      fi->param_value.push_back(addr_expr);
+    } else {
+      fi->param_value.push_back(
+          Expression::make_random(cg_context, param_types[i]));
+    }
+  }
+  return fi;
+}
+
+enum FunctionInvocationHIPWarpMatchBuiltIn::BuiltIn
+FunctionInvocationHIPWarpMatchBuiltIn::FunctionSelector(
+    const Type &type, std::vector<const Type *> *params, const Type &t_type) {
+  assert(params != NULL);
+  params->clear();
+
+  assert(hip_warp_match_func_table != NULL);
+  VectorFilter filter(hip_warp_match_func_table);
+
+  int rnd = rnd_upto(filter.get_max_prob(), &filter);
+  enum BuiltIn func = (enum BuiltIn)filter.lookup(rnd);
+
+  switch (func) {
+    case kMatchAny:
+      params->push_back(&t_type);
+      break;
+    case kMatchAll:
+      params->push_back(&t_type);
+      params->push_back(&Type::get_simple_type(eInt));  // pred
+      break;
+    case kMatchAnySync:
+      params->push_back(&Type::get_simple_type(eULongLong));  // mask
+      params->push_back(&t_type);
+      break;
+    case kMatchAllSync:
+      params->push_back(&Type::get_simple_type(eULongLong));  // mask
+      params->push_back(&t_type);
+      params->push_back(&Type::get_simple_type(eInt));  // pred
+      break;
+    default:
+      assert(false);
+  }
+  return func;
+}
+
+void FunctionInvocationHIPWarpMatchBuiltIn::InitTables() {
+  hip_warp_match_func_table = new DistributionTable();
+  hip_warp_match_func_table->add_entry(kMatchAny, 10);
+  hip_warp_match_func_table->add_entry(kMatchAll, 10);
+  hip_warp_match_func_table->add_entry(kMatchAnySync, 10);
+  hip_warp_match_func_table->add_entry(kMatchAllSync, 10);
+}
+
+FunctionInvocationHIPWarpMatchBuiltIn *
+FunctionInvocationHIPWarpMatchBuiltIn::clone() const {
+  FunctionInvocationHIPWarpMatchBuiltIn *fi =
+      new FunctionInvocationHIPWarpMatchBuiltIn(built_in_, type_, t_type_);
+  for (const Expression *expr : param_value) {
+    fi->param_value.push_back(expr->clone());
+  }
+  return fi;
+}
+
+void FunctionInvocationHIPWarpMatchBuiltIn::OutputFuncName(
+    std::ostream &out) const {
+  out << kWarpMatchNames[built_in_];
+}
+
+void FunctionInvocationHIPWarpMatchBuiltIn::Output(std::ostream &out) const {
+  OutputFuncName(out);
+  out << '(';
+
+  for (size_t idx = 0; idx < param_value.size(); ++idx) {
+    bool is_mask = (idx == 0 &&
+                    (built_in_ == kMatchAnySync || built_in_ == kMatchAllSync));
+    bool is_pred = ((built_in_ == kMatchAll && idx == 1) ||
+                    (built_in_ == kMatchAllSync && idx == 2));
+
+    bool is_val =
+        ((built_in_ == kMatchAny || built_in_ == kMatchAll) && idx == 0) ||
+        ((built_in_ == kMatchAnySync || built_in_ == kMatchAllSync) &&
+         idx == 1);
+
+    if (is_mask) {
+      out << "(unsigned long long)(";
+      param_value[idx]->Output(out);
+      out << ")";
+    } else if (is_pred) {
+      out << "&(";
+      param_value[idx]->Output(out);
+      out << ")";
+    } else if (is_val) {
+      // we force a cast
+      // an example of where it breaks if we generate a boolean operation that
+      // is not allowed so we cast it up
+      if (t_type_.eType == eSimple && t_type_.simple_type == eLongLong) {
+        out << "(long long)(";
+      } else {
+        out << "(int)(";
+      }
+      param_value[idx]->Output(out);
+      out << ")";
+    } else {
+      param_value[idx]->Output(out);
+    }
+
+    if (idx < param_value.size() - 1) {
+      out << ", ";
+    }
+  }
+  out << ')';
+}
+
+const Type &FunctionInvocationHIPWarpMatchBuiltIn::GetParameterType(
+    size_t idx) const {
+  if (built_in_ == kMatchAnySync || built_in_ == kMatchAllSync) {
+    if (idx == 0) return Type::get_simple_type(eULongLong);
+    if (idx == 1) return t_type_;
+    return Type::get_simple_type(eInt);
+  }
+  if (idx == 0) return t_type_;
+  return Type::get_simple_type(eInt);
+}
+// warp match end
 
 }  // namespace HIPSmith

@@ -257,7 +257,7 @@ void HIPOutputMgr::OutputEntryFunction(Globals &globals) {
 
   if (HIPSmith::HIPOptions::hip_managed() || HIPOptions::hip_device() ||
       HIPOptions::hip_builtins() || HIPOptions::hip_sync() ||
-      HIPOptions::hip_warp()) {
+      HIPOptions::hip_warp() || HIPOptions::hip_warp_match()) {
     output_tab(driver_out, 1);
     driver_out << "// argc should be 1 so block size=1 enforced due to using "
                   "HIP's managed memory OR HIP device memory OR hip builtins "
@@ -275,7 +275,7 @@ void HIPOutputMgr::OutputEntryFunction(Globals &globals) {
   if (HIPSmith::HIPOptions::hip_shared() ||
       HIPSmith::HIPOptions::hip_managed() || HIPOptions::hip_device() ||
       HIPOptions::hip_builtins() || HIPOptions::hip_sync() ||
-      HIPOptions::hip_warp()) {
+      HIPOptions::hip_warp() || HIPOptions::hip_warp_match()) {
     output_tab(driver_out, 1);
     driver_out << "// argc should be 1 so block size=1 enforced due to using "
                   "HIP's shared memory, device memory or managed memory OR hip "

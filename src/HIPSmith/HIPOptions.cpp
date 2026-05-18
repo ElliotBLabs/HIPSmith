@@ -23,6 +23,7 @@ DEFINE_HIPFLAG(hip_device, bool, false)
 DEFINE_HIPFLAG(hip_builtins, bool, false)
 DEFINE_HIPFLAG(hip_sync, bool, false)
 DEFINE_HIPFLAG(hip_warp, bool, false)
+DEFINE_HIPFLAG(hip_warp_match, bool, false)
 #undef DEFINE_HIPFLAG
 
 void HIPOptions::set_default_settings() {
@@ -37,6 +38,8 @@ void HIPOptions::set_default_settings() {
   hip_device_ = false;
   hip_builtins_ = false;
   hip_sync_ = false;
+  hip_warp_ = false;
+  hip_warp_match_ = false;
 }
 
 void HIPOptions::ResolveCGOptions() {
