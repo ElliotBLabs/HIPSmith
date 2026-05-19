@@ -6,6 +6,7 @@
 
 #include "Bookkeeper.h"
 #include "CGContext.h"
+#include "Constant.h"
 #include "Expression.h"
 #include "ExpressionVariable.h"
 #include "HIPSmith/HIPOptions.h"
@@ -156,9 +157,16 @@ FunctionInvocationHIPWarpVoteBuiltIn::make_random(CGContext &cg_context,
   FunctionInvocationHIPWarpVoteBuiltIn *fi =
       new FunctionInvocationHIPWarpVoteBuiltIn(func, type);
 
-  for (const Type *param_type : param_types) {
-    // use a random csmith expression as a parameter inside these
-    fi->param_value.push_back(Expression::make_random(cg_context, param_type));
+  for (size_t i = 0; i < param_types.size(); ++i) {
+    if (i == 0 &&
+        (func == kAllSync || func == kAnySync || func == kBallotSync)) {
+      // this is the execution mask field
+      // this is going to get replaced with __activemask() so dummy const
+      fi->param_value.push_back(Constant::make_int(0));
+    } else {
+      fi->param_value.push_back(
+          Expression::make_random(cg_context, param_types[i]));
+    }
   }
   return fi;
 }
@@ -231,18 +239,14 @@ void FunctionInvocationHIPWarpVoteBuiltIn::Output(std::ostream &out) const {
   out << '(';
 
   for (size_t idx = 0; idx < param_value.size(); ++idx) {
-    // we force a cast to ulonglong for the exec masks
     if (idx == 0 && (built_in_ == kAllSync || built_in_ == kAnySync ||
                      built_in_ == kBallotSync)) {
-      out << "(unsigned long long)(";
-      param_value[idx]->Output(out);
-      out << ")";
+      // replace exec mask placeholder with this
+      out << "__activemask()";
     } else {
-      // do not change the output
       param_value[idx]->Output(out);
     }
 
-    // commas between args
     if (idx < param_value.size() - 1) {
       out << ", ";
     }
@@ -284,8 +288,15 @@ FunctionInvocationHIPWarpMatchBuiltIn::make_random(CGContext &cg_context,
       new FunctionInvocationHIPWarpMatchBuiltIn(func, type, *t_type);
 
   for (size_t i = 0; i < param_types.size(); ++i) {
-    if ((func == kMatchAll && i == 1) || (func == kMatchAllSync && i == 2)) {
-      // 1. The predicate is ALWAYS a 32-bit integer, even if t_type is a 64-bit long long!
+    bool is_mask_param =
+        (i == 0 && (func == kMatchAnySync || func == kMatchAllSync));
+    bool is_pred_param =
+        ((func == kMatchAll && i == 1) || (func == kMatchAllSync && i == 2));
+
+    if (is_mask_param) {
+      // dummy param as need to place __activemask() here
+      fi->param_value.push_back(Constant::make_int(0));
+    } else if (is_pred_param) {
       const Type *base_type = &Type::get_simple_type(eInt);
 
       CVQualifiers qfer;
@@ -298,21 +309,19 @@ FunctionInvocationHIPWarpMatchBuiltIn::make_random(CGContext &cg_context,
           VariableSelector::select(Effect::WRITE, cg_context, base_type, &qfer,
                                    invalid_vars, eExact, eParentLocal);
 
-      // 3. Ensure we didn't accidentally get a bitfield (can't take their
+      // ensure we didn't accidentally get a bitfield (can't take their
       // address)
-      // if (!pred_var || pred_var->isBitfield_) {
-      //   delete fi;
-      //   return NULL;
-      // }
+      if (!pred_var || pred_var->isBitfield_) {
+        delete fi;
+        return NULL;
+      }
 
-      // 4. Create the AST node.
-      // Passing the scalar variable `pred_var` but requesting `param_types[i]`
-      // (the pointer type) inherently generates an indirect_level of -1,
-      // printing as `&pred_var`.
+      // turns our scalar local into an indirect level of -1 so takes the
+      // address
       ExpressionVariable *addr_expr =
           new ExpressionVariable(*pred_var, param_types[i]);
 
-      // 5. Update Csmith's dataflow tracking so it knows the address escaped
+      // update csmith tracking
       Bookkeeper::record_address_taken(pred_var);
       Bookkeeper::record_volatile_access(pred_var, -1, false);
 
@@ -399,17 +408,17 @@ void FunctionInvocationHIPWarpMatchBuiltIn::Output(std::ostream &out) const {
          idx == 1);
 
     if (is_mask) {
-      out << "(unsigned long long)(";
-      param_value[idx]->Output(out);
-      out << ")";
+      // replace dummy param
+      out << "__activemask()";
+
     } else if (is_pred) {
-      out << "&(";
+      // force a cast
+      out << "(int *)&(";
       param_value[idx]->Output(out);
       out << ")";
+
     } else if (is_val) {
-      // we force a cast
-      // an example of where it breaks if we generate a boolean operation that
-      // is not allowed so we cast it up
+      // explicit casts
       if (t_type_.eType == eSimple && t_type_.simple_type == eLongLong) {
         out << "(long long)(";
       } else {
@@ -417,6 +426,7 @@ void FunctionInvocationHIPWarpMatchBuiltIn::Output(std::ostream &out) const {
       }
       param_value[idx]->Output(out);
       out << ")";
+
     } else {
       param_value[idx]->Output(out);
     }
