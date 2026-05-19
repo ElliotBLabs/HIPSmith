@@ -66,6 +66,11 @@ int main(int argc, char **argv) {
       continue;
     }
 
+    if (strcmp(argv[idx], "--hip-warp-shuffle") == 0) {
+      HIPSmith::HIPOptions::hip_warp_shuffle(true);
+      continue;
+    }
+
     if (strcmp(argv[idx], "--small") == 0) {
       HIPSmith::HIPOptions::small(true);
       continue;
