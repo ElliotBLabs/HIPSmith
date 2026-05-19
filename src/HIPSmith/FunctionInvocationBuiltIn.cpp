@@ -23,6 +23,7 @@ namespace {
 DistributionTable *hip_sync_func_table = NULL;
 DistributionTable *hip_warp_vote_func_table = NULL;
 DistributionTable *hip_warp_match_func_table = NULL;
+DistributionTable *hip_warp_shuffle_func_table = NULL;
 
 const char *const kSyncNames[4] = {"",  // Sentinel
                                    "__syncthreads_count", "__syncthreads_and",
@@ -35,6 +36,16 @@ const char *const kWarpVoteNames[] = {
 
 const char *const kWarpMatchNames[] = {"", "__match_any", "__match_all",
                                        "__match_any_sync", "__match_all_sync"};
+
+const char *const kWarpShuffleNames[] = {"",  // Sentinel
+                                         "__shfl",
+                                         "__shfl_up",
+                                         "__shfl_down",
+                                         "__shfl_xor",
+                                         "__shfl_sync",
+                                         "__shfl_up_sync",
+                                         "__shfl_down_sync",
+                                         "__shfl_xor_sync"};
 }  // namespace
 
 // base class
@@ -43,14 +54,17 @@ FunctionInvocationHIPBuiltIn *FunctionInvocationHIPBuiltIn::make_random(
     CGContext &cg_context, const Type &type) {
   if (type.eType == eSimple) {
     int choice = rnd_upto(100);
-    if (choice < 33 && HIPOptions::hip_sync()) {
+    if (choice < 25 && HIPOptions::hip_sync()) {
       return FunctionInvocationHIPSyncBuiltIn::make_random(cg_context, type);
-    } else if (choice < 66 && HIPOptions::hip_warp()) {
+    } else if (choice < 50 && HIPOptions::hip_warp()) {
       return FunctionInvocationHIPWarpVoteBuiltIn::make_random(cg_context,
                                                                type);
-    } else if (HIPOptions::hip_warp_match()) {
+    } else if (choice < 75 && HIPOptions::hip_warp_match()) {
       return FunctionInvocationHIPWarpMatchBuiltIn::make_random(cg_context,
                                                                 type);
+    } else if (HIPOptions::hip_warp_shuffle()) {
+      return FunctionInvocationHIPWarpShuffleBuiltIn::make_random(cg_context,
+                                                                  type);
     }
   }
   return NULL;
@@ -60,6 +74,7 @@ void FunctionInvocationHIPBuiltIn::InitTables() {
   FunctionInvocationHIPSyncBuiltIn::InitTables();
   FunctionInvocationHIPWarpVoteBuiltIn::InitTables();
   FunctionInvocationHIPWarpMatchBuiltIn::InitTables();
+  FunctionInvocationHIPWarpShuffleBuiltIn::InitTables();
 }
 
 void FunctionInvocationHIPBuiltIn::Output(std::ostream &out) const {
@@ -449,5 +464,152 @@ const Type &FunctionInvocationHIPWarpMatchBuiltIn::GetParameterType(
   return Type::get_simple_type(eInt);
 }
 // warp match end
+
+// WARP Shuffle start
+
+FunctionInvocationHIPWarpShuffleBuiltIn *
+FunctionInvocationHIPWarpShuffleBuiltIn::make_random(CGContext &cg_context,
+                                                     const Type &type) {
+  // T can be 32-bit int or 64-bit int only for fuzzing
+  // no flots or doubles
+  const Type *possible_t_types[] = {&Type::get_simple_type(eInt),
+                                    &Type::get_simple_type(eLongLong)};
+  const Type *t_type = possible_t_types[rnd_upto(2)];
+
+  std::vector<const Type *> param_types;
+  enum BuiltIn func = FunctionSelector(type, &param_types);
+
+  if (func == kIdentity) {
+    return NULL;
+  }
+
+  FunctionInvocationHIPWarpShuffleBuiltIn *fi =
+      new FunctionInvocationHIPWarpShuffleBuiltIn(func, type);
+
+  for (size_t i = 0; i < param_types.size(); ++i) {
+    bool is_sync = (func >= kShflSync);
+
+    if (i == 0 && is_sync) {
+      // dummy param to be replaced with __activemask()
+      fi->param_value.push_back(Constant::make_int(0));
+    } else if (i == param_types.size() - 1) {
+      // push 1 into the final slot which is width to prevent UB
+      fi->param_value.push_back(Constant::make_int(1)); 
+    } else {
+      fi->param_value.push_back(
+          Expression::make_random(cg_context, param_types[i]));
+    }
+  }
+  return fi;
+}
+
+enum FunctionInvocationHIPWarpShuffleBuiltIn::BuiltIn
+FunctionInvocationHIPWarpShuffleBuiltIn::FunctionSelector(
+    const Type &type, std::vector<const Type *> *params) {
+  assert(params != NULL);
+  params->clear();
+
+  assert(hip_warp_shuffle_func_table != NULL);
+  VectorFilter filter(hip_warp_shuffle_func_table);
+
+  int rnd = rnd_upto(filter.get_max_prob(), &filter);
+  enum BuiltIn func = (enum BuiltIn)filter.lookup(rnd);
+
+  bool is_sync = (func >= kShflSync);
+
+  if (is_sync) {
+    params->push_back(&Type::get_simple_type(eULongLong));  // mask
+  }
+
+  // T var
+  params->push_back(&type);
+
+  // lane/delta/mask argument. 
+  //_up and _down use  Uint, others use int.
+  if (func == kShflUp || func == kShflDown || func == kShflUpSync ||
+      func == kShflDownSync) {
+    params->push_back(&Type::get_simple_type(eUInt));
+  } else {
+    params->push_back(&Type::get_simple_type(eInt));
+  }
+
+  // the width param
+  params->push_back(&Type::get_simple_type(eInt));
+
+  return func;
+}
+
+void FunctionInvocationHIPWarpShuffleBuiltIn::InitTables() {
+  hip_warp_shuffle_func_table = new DistributionTable();
+  hip_warp_shuffle_func_table->add_entry(kShfl, 10);
+  hip_warp_shuffle_func_table->add_entry(kShflUp, 10);
+  hip_warp_shuffle_func_table->add_entry(kShflDown, 10);
+  hip_warp_shuffle_func_table->add_entry(kShflXor, 10);
+  hip_warp_shuffle_func_table->add_entry(kShflSync, 10);
+  hip_warp_shuffle_func_table->add_entry(kShflUpSync, 10);
+  hip_warp_shuffle_func_table->add_entry(kShflDownSync, 10);
+  hip_warp_shuffle_func_table->add_entry(kShflXorSync, 10);
+}
+
+FunctionInvocationHIPWarpShuffleBuiltIn *
+FunctionInvocationHIPWarpShuffleBuiltIn::clone() const {
+  FunctionInvocationHIPWarpShuffleBuiltIn *fi =
+      new FunctionInvocationHIPWarpShuffleBuiltIn(built_in_, type_);
+  for (const Expression *expr : param_value) {
+    fi->param_value.push_back(expr->clone());
+  }
+  return fi;
+}
+
+void FunctionInvocationHIPWarpShuffleBuiltIn::OutputFuncName(
+    std::ostream &out) const {
+  out << kWarpShuffleNames[built_in_];
+}
+
+void FunctionInvocationHIPWarpShuffleBuiltIn::Output(std::ostream &out) const {
+  OutputFuncName(out);
+  out << '(';
+
+  for (size_t idx = 0; idx < param_value.size(); ++idx) {
+    bool is_sync_mask = (idx == 0 && built_in_ >= kShflSync);
+
+    if (is_sync_mask) {
+      out << "__activemask()";
+    } else {
+      param_value[idx]->Output(out);
+    }
+
+    if (idx < param_value.size() - 1) {
+      out << ", ";
+    }
+  }
+  out << ')';
+}
+
+const Type &FunctionInvocationHIPWarpShuffleBuiltIn::GetParameterType(
+    size_t idx) const {
+  bool is_sync = (built_in_ >= kShflSync);
+  bool is_width = (idx == (is_sync ? 3 : 2));
+
+  if (is_width) {
+    return Type::get_simple_type(eInt); // width
+  }
+
+  if (is_sync) {
+    if (idx == 0) return Type::get_simple_type(eULongLong);
+    if (idx == 1) return type_;  // T var
+  } else {
+    if (idx == 0) return type_;  // T var
+  }
+
+  // lane/delta arguments
+  if (built_in_ == kShflUp || built_in_ == kShflDown ||
+      built_in_ == kShflUpSync || built_in_ == kShflDownSync) {
+    return Type::get_simple_type(eUInt);
+  }
+  return Type::get_simple_type(eInt);
+}
+
+// warp shuffle end
 
 }  // namespace HIPSmith

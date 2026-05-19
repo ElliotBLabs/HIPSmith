@@ -18,7 +18,7 @@ namespace HIPSmith {
 // Base class for HIP built-in functions
 class FunctionInvocationHIPBuiltIn : public FunctionInvocation {
  public:
-  enum BuiltInType { kSyncPredicates = 0, kWarpVote, kWarpMatch };
+  enum BuiltInType { kSyncPredicates = 0, kWarpVote, kWarpMatch, kWarpShuffle };
 
   FunctionInvocationHIPBuiltIn(enum BuiltInType built_in_type, const Type& type)
       : FunctionInvocation(eHIPBuiltin, SafeOpFlags::make_dummy_flags()),
@@ -169,6 +169,51 @@ class FunctionInvocationHIPWarpMatchBuiltIn
   const Type& t_type_; 
   DISALLOW_COPY_AND_ASSIGN(FunctionInvocationHIPWarpMatchBuiltIn);
 };
+
+// shuffle start
+class FunctionInvocationHIPWarpShuffleBuiltIn
+    : public FunctionInvocationHIPBuiltIn {
+ public:
+  enum BuiltIn {
+    kIdentity = 0,  // Sentinel
+    kShfl,
+    kShflUp,
+    kShflDown,
+    kShflXor,
+    kShflSync,
+    kShflUpSync,
+    kShflDownSync,
+    kShflXorSync
+  };
+
+  FunctionInvocationHIPWarpShuffleBuiltIn(enum BuiltIn built_in, const Type& type)
+      : FunctionInvocationHIPBuiltIn(kWarpShuffle, type),
+        built_in_(built_in) {}
+  FunctionInvocationHIPWarpShuffleBuiltIn(
+      FunctionInvocationHIPWarpShuffleBuiltIn&& other) = default;
+  FunctionInvocationHIPWarpShuffleBuiltIn& operator=(
+      FunctionInvocationHIPWarpShuffleBuiltIn&& other) = default;
+  virtual ~FunctionInvocationHIPWarpShuffleBuiltIn() {}
+
+  static FunctionInvocationHIPWarpShuffleBuiltIn* make_random(
+      CGContext& cg_context, const Type& type);
+  static enum BuiltIn FunctionSelector(const Type& type,
+                                       std::vector<const Type*>* params);
+  static void InitTables();
+
+  FunctionInvocationHIPWarpShuffleBuiltIn* clone() const override;
+  void OutputFuncName(std::ostream& out) const override;
+  void Output(std::ostream& out) const override;
+  const Type& GetParameterType(size_t idx) const override;
+
+  enum BuiltIn GetBuiltIn() const { return built_in_; }
+
+ private:
+  enum BuiltIn built_in_;
+  DISALLOW_COPY_AND_ASSIGN(FunctionInvocationHIPWarpShuffleBuiltIn);
+};
+
+// shuffle end
 
 }  // namespace HIPSmith
 
