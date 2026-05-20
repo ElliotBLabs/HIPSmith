@@ -326,7 +326,8 @@ FunctionInvocationHIPWarpMatchBuiltIn::make_random(CGContext &cg_context,
 
       // ensure we didn't accidentally get a bitfield (can't take their
       // address)
-      if (!pred_var || pred_var->isBitfield_) {
+      // and we must take an actual eInt
+      if (!pred_var || pred_var->isBitfield_ || pred_var->type->simple_type != eInt) {
         delete fi;
         return NULL;
       }
@@ -427,8 +428,7 @@ void FunctionInvocationHIPWarpMatchBuiltIn::Output(std::ostream &out) const {
       out << "__activemask()";
 
     } else if (is_pred) {
-      // force a cast
-      out << "(int *)&(";
+      out << "&(";
       param_value[idx]->Output(out);
       out << ")";
 
