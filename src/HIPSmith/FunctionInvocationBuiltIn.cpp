@@ -328,8 +328,16 @@ FunctionInvocationHIPWarpMatchBuiltIn::make_random(CGContext &cg_context,
       // address)
       // and we must take an actual eInt
       if (!pred_var || pred_var->isBitfield_ || pred_var->type->simple_type != eInt) {
-        delete fi;
-        return NULL;
+        
+        // Downgrade to the version of the function that doesn't need the predicate pointer
+        if (func == kMatchAll) {
+            fi->built_in_ = kMatchAny;
+        } else if (func == kMatchAllSync) {
+            fi->built_in_ = kMatchAnySync;
+        }
+        
+        // We can safely skip processing this parameter since kMatchAny doesn't take one.
+        continue; 
       }
 
       // turns our scalar local into an indirect level of -1 so takes the
@@ -571,10 +579,21 @@ void FunctionInvocationHIPWarpShuffleBuiltIn::Output(std::ostream &out) const {
   out << '(';
 
   for (size_t idx = 0; idx < param_value.size(); ++idx) {
-    bool is_sync_mask = (idx == 0 && built_in_ >= kShflSync);
+    bool is_sync = (built_in_ >= kShflSync);
+    bool is_sync_mask = (idx == 0 && is_sync);
+    bool is_t_var = (is_sync ? (idx == 1) : (idx == 0)); 
 
     if (is_sync_mask) {
       out << "__activemask()";
+    } else if (is_t_var) {
+      // need explicit casts here due to template deductions
+      if (type_.eType == eSimple && type_.simple_type == eLongLong) {
+        out << "(long long)(";
+      } else {
+        out << "(int)(";
+      }
+      param_value[idx]->Output(out);
+      out << ")";
     } else {
       param_value[idx]->Output(out);
     }
