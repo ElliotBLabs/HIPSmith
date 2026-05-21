@@ -32,20 +32,20 @@ const char *const kSyncNames[4] = {"",  // Sentinel
 const char *const kWarpVoteNames[] = {
     "",  // Sentinel
     "__all",      "__any",      "__ballot",     "__activemask",
-    "__all_sync", "__any_sync", "__ballot_sync"};
+    "safe_all_sync", "safe_any_sync", "safe_ballot_sync"};
 
-const char *const kWarpMatchNames[] = {"", "__match_any", "__match_all",
-                                       "__match_any_sync", "__match_all_sync"};
+const char *const kWarpMatchNames[] = {"", "safe_match_any", "safe_match_all",
+                                       "safe_match_any_sync", "safe_match_all_sync"};
 
 const char *const kWarpShuffleNames[] = {"",  // Sentinel
-                                         "__shfl",
-                                         "__shfl_up",
-                                         "__shfl_down",
-                                         "__shfl_xor",
-                                         "__shfl_sync",
-                                         "__shfl_up_sync",
-                                         "__shfl_down_sync",
-                                         "__shfl_xor_sync"};
+                                         "safe_shfl",
+                                         "safe_shfl_up",
+                                         "safe_shfl_down",
+                                         "safe_shfl_xor",
+                                         "safe_shfl_sync",
+                                         "safe_shfl_up_sync",
+                                         "safe_shfl_down_sync",
+                                         "safe_shfl_xor_sync"};
 }  // namespace
 
 // base class
@@ -173,15 +173,8 @@ FunctionInvocationHIPWarpVoteBuiltIn::make_random(CGContext &cg_context,
       new FunctionInvocationHIPWarpVoteBuiltIn(func, type);
 
   for (size_t i = 0; i < param_types.size(); ++i) {
-    if (i == 0 &&
-        (func == kAllSync || func == kAnySync || func == kBallotSync)) {
-      // this is the execution mask field
-      // this is going to get replaced with __activemask() so dummy const
-      fi->param_value.push_back(Constant::make_int(0));
-    } else {
-      fi->param_value.push_back(
-          Expression::make_random(cg_context, param_types[i]));
-    }
+    fi->param_value.push_back(
+        Expression::make_random(cg_context, param_types[i]));
   }
   return fi;
 }
@@ -198,26 +191,9 @@ FunctionInvocationHIPWarpVoteBuiltIn::FunctionSelector(
   int rnd = rnd_upto(filter.get_max_prob(), &filter);
   enum BuiltIn func = (enum BuiltIn)filter.lookup(rnd);
 
-  // Populate expected parameters based on the selected built-in
-  switch (func) {
-    case kActiveMask:
-      // 0 parameters
-      break;
-    case kAll:
-    case kAny:
-    case kBallot:
-      // 1 parameter: int predicate
-      params->push_back(&Type::get_simple_type(eInt));
-      break;
-    case kAllSync:
-    case kAnySync:
-    case kBallotSync:
-      // 2 parameters: unsigned long long mask, int predicate
-      params->push_back(&Type::get_simple_type(eULongLong));
-      params->push_back(&Type::get_simple_type(eInt));
-      break;
-    default:
-      assert(false);
+  // Everything except __activemask() takes exactly 1 integer predicate now
+  if (func != kActiveMask) {
+    params->push_back(&Type::get_simple_type(eInt));
   }
 
   return func;
@@ -247,27 +223,6 @@ FunctionInvocationHIPWarpVoteBuiltIn::clone() const {
 void FunctionInvocationHIPWarpVoteBuiltIn::OutputFuncName(
     std::ostream &out) const {
   out << kWarpVoteNames[built_in_];
-}
-
-void FunctionInvocationHIPWarpVoteBuiltIn::Output(std::ostream &out) const {
-  OutputFuncName(out);
-  out << '(';
-
-  for (size_t idx = 0; idx < param_value.size(); ++idx) {
-    if (idx == 0 && (built_in_ == kAllSync || built_in_ == kAnySync ||
-                     built_in_ == kBallotSync)) {
-      // replace exec mask placeholder with this
-      out << "__activemask()";
-    } else {
-      param_value[idx]->Output(out);
-    }
-
-    if (idx < param_value.size() - 1) {
-      out << ", ";
-    }
-  }
-
-  out << ')';
 }
 
 const Type &FunctionInvocationHIPWarpVoteBuiltIn::GetParameterType(
@@ -303,49 +258,27 @@ FunctionInvocationHIPWarpMatchBuiltIn::make_random(CGContext &cg_context,
       new FunctionInvocationHIPWarpMatchBuiltIn(func, type, *t_type);
 
   for (size_t i = 0; i < param_types.size(); ++i) {
-    bool is_mask_param =
-        (i == 0 && (func == kMatchAnySync || func == kMatchAllSync));
-    bool is_pred_param =
-        ((func == kMatchAll && i == 1) || (func == kMatchAllSync && i == 2));
+    // pred always at index 1
+    bool is_pred_param = (i == 1 && (func == kMatchAll || func == kMatchAllSync));
 
-    if (is_mask_param) {
-      // dummy param as need to place __activemask() here
-      fi->param_value.push_back(Constant::make_int(0));
-    } else if (is_pred_param) {
+    if (is_pred_param) {
       const Type *base_type = &Type::get_simple_type(eInt);
-
       CVQualifiers qfer;
       qfer.add_qualifiers(false, false);
       std::vector<const Variable *> invalid_vars;
 
-      // find a local int/long long,
-      // or securely create and initialize a new one if none exists.
       Variable *pred_var =
           VariableSelector::select(Effect::WRITE, cg_context, base_type, &qfer,
                                    invalid_vars, eExact, eParentLocal);
 
-      // ensure we didn't accidentally get a bitfield (can't take their
-      // address)
-      // and we must take an actual eInt
       if (!pred_var || pred_var->isBitfield_ || pred_var->type->simple_type != eInt) {
-        
-        // Downgrade to the version of the function that doesn't need the predicate pointer
-        if (func == kMatchAll) {
-            fi->built_in_ = kMatchAny;
-        } else if (func == kMatchAllSync) {
-            fi->built_in_ = kMatchAnySync;
-        }
-        
-        // We can safely skip processing this parameter since kMatchAny doesn't take one.
+        if (func == kMatchAll) fi->built_in_ = kMatchAny;
+        else if (func == kMatchAllSync) fi->built_in_ = kMatchAnySync;
         continue; 
       }
 
-      // turns our scalar local into an indirect level of -1 so takes the
-      // address
       ExpressionVariable *addr_expr =
           new ExpressionVariable(*pred_var, param_types[i]);
-
-      // update csmith tracking
       Bookkeeper::record_address_taken(pred_var);
       Bookkeeper::record_volatile_access(pred_var, -1, false);
 
@@ -372,18 +305,11 @@ FunctionInvocationHIPWarpMatchBuiltIn::FunctionSelector(
 
   switch (func) {
     case kMatchAny:
+    case kMatchAnySync:
       params->push_back(&t_type);
       break;
     case kMatchAll:
-      params->push_back(&t_type);
-      params->push_back(&Type::get_simple_type(eInt));  // pred
-      break;
-    case kMatchAnySync:
-      params->push_back(&Type::get_simple_type(eULongLong));  // mask
-      params->push_back(&t_type);
-      break;
     case kMatchAllSync:
-      params->push_back(&Type::get_simple_type(eULongLong));  // mask
       params->push_back(&t_type);
       params->push_back(&Type::get_simple_type(eInt));  // pred
       break;
@@ -421,35 +347,13 @@ void FunctionInvocationHIPWarpMatchBuiltIn::Output(std::ostream &out) const {
   out << '(';
 
   for (size_t idx = 0; idx < param_value.size(); ++idx) {
-    bool is_mask = (idx == 0 &&
-                    (built_in_ == kMatchAnySync || built_in_ == kMatchAllSync));
-    bool is_pred = ((built_in_ == kMatchAll && idx == 1) ||
-                    (built_in_ == kMatchAllSync && idx == 2));
+    // Only thing this function needs to do now is insert the '&'
+    bool is_pred = (idx == 1 && (built_in_ == kMatchAll || built_in_ == kMatchAllSync));
 
-    bool is_val =
-        ((built_in_ == kMatchAny || built_in_ == kMatchAll) && idx == 0) ||
-        ((built_in_ == kMatchAnySync || built_in_ == kMatchAllSync) &&
-         idx == 1);
-
-    if (is_mask) {
-      // replace dummy param
-      out << "__activemask()";
-
-    } else if (is_pred) {
+    if (is_pred) {
       out << "&(";
       param_value[idx]->Output(out);
       out << ")";
-
-    } else if (is_val) {
-      // explicit casts
-      if (t_type_.eType == eSimple && t_type_.simple_type == eLongLong) {
-        out << "(long long)(";
-      } else {
-        out << "(int)(";
-      }
-      param_value[idx]->Output(out);
-      out << ")";
-
     } else {
       param_value[idx]->Output(out);
     }
@@ -463,11 +367,7 @@ void FunctionInvocationHIPWarpMatchBuiltIn::Output(std::ostream &out) const {
 
 const Type &FunctionInvocationHIPWarpMatchBuiltIn::GetParameterType(
     size_t idx) const {
-  if (built_in_ == kMatchAnySync || built_in_ == kMatchAllSync) {
-    if (idx == 0) return Type::get_simple_type(eULongLong);
-    if (idx == 1) return t_type_;
-    return Type::get_simple_type(eInt);
-  }
+  // Index 0 is always the T val, Index 1 is always the int* pred
   if (idx == 0) return t_type_;
   return Type::get_simple_type(eInt);
 }
@@ -494,19 +394,11 @@ FunctionInvocationHIPWarpShuffleBuiltIn::make_random(CGContext &cg_context,
   FunctionInvocationHIPWarpShuffleBuiltIn *fi =
       new FunctionInvocationHIPWarpShuffleBuiltIn(func, type);
 
+  // we are using the safe version so no dummy for activemask or width 
+  // as those will be hardcoded in the safe header
   for (size_t i = 0; i < param_types.size(); ++i) {
-    bool is_sync = (func >= kShflSync);
-
-    if (i == 0 && is_sync) {
-      // dummy param to be replaced with __activemask()
-      fi->param_value.push_back(Constant::make_int(0));
-    } else if (i == param_types.size() - 1) {
-      // push 1 into the final slot which is width to prevent UB
-      fi->param_value.push_back(Constant::make_int(1)); 
-    } else {
-      fi->param_value.push_back(
-          Expression::make_random(cg_context, param_types[i]));
-    }
+    fi->param_value.push_back(
+        Expression::make_random(cg_context, param_types[i]));
   }
   return fi;
 }
@@ -523,26 +415,17 @@ FunctionInvocationHIPWarpShuffleBuiltIn::FunctionSelector(
   int rnd = rnd_upto(filter.get_max_prob(), &filter);
   enum BuiltIn func = (enum BuiltIn)filter.lookup(rnd);
 
-  bool is_sync = (func >= kShflSync);
-
-  if (is_sync) {
-    params->push_back(&Type::get_simple_type(eULongLong));  // mask
-  }
-
-  // T var
+  // 1. T var is always the first parameter
   params->push_back(&type);
 
-  // lane/delta/mask argument. 
-  //_up and _down use  Uint, others use int.
+  // 2. lane/delta/mask argument. 
+  // _up and _down use Uint, others use int.
   if (func == kShflUp || func == kShflDown || func == kShflUpSync ||
       func == kShflDownSync) {
     params->push_back(&Type::get_simple_type(eUInt));
   } else {
     params->push_back(&Type::get_simple_type(eInt));
   }
-
-  // the width param
-  params->push_back(&Type::get_simple_type(eInt));
 
   return func;
 }
@@ -573,37 +456,7 @@ void FunctionInvocationHIPWarpShuffleBuiltIn::OutputFuncName(
     std::ostream &out) const {
   out << kWarpShuffleNames[built_in_];
 }
-
-void FunctionInvocationHIPWarpShuffleBuiltIn::Output(std::ostream &out) const {
-  OutputFuncName(out);
-  out << '(';
-
-  for (size_t idx = 0; idx < param_value.size(); ++idx) {
-    bool is_sync = (built_in_ >= kShflSync);
-    bool is_sync_mask = (idx == 0 && is_sync);
-    bool is_t_var = (is_sync ? (idx == 1) : (idx == 0)); 
-
-    if (is_sync_mask) {
-      out << "__activemask()";
-    } else if (is_t_var) {
-      // need explicit casts here due to template deductions
-      if (type_.eType == eSimple && type_.simple_type == eLongLong) {
-        out << "(long long)(";
-      } else {
-        out << "(int)(";
-      }
-      param_value[idx]->Output(out);
-      out << ")";
-    } else {
-      param_value[idx]->Output(out);
-    }
-
-    if (idx < param_value.size() - 1) {
-      out << ", ";
-    }
-  }
-  out << ')';
-}
+  
 
 const Type &FunctionInvocationHIPWarpShuffleBuiltIn::GetParameterType(
     size_t idx) const {
