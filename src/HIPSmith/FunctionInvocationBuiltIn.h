@@ -118,7 +118,6 @@ class FunctionInvocationHIPWarpVoteBuiltIn
 
   FunctionInvocationHIPWarpVoteBuiltIn* clone() const override;
   void OutputFuncName(std::ostream& out) const override;
-  void Output(std::ostream& out) const override;
   const Type& GetParameterType(size_t idx) const override;
 
   enum BuiltIn GetBuiltIn() const { return built_in_; }
@@ -203,7 +202,6 @@ class FunctionInvocationHIPWarpShuffleBuiltIn
 
   FunctionInvocationHIPWarpShuffleBuiltIn* clone() const override;
   void OutputFuncName(std::ostream& out) const override;
-  void Output(std::ostream& out) const override;
   const Type& GetParameterType(size_t idx) const override;
 
   enum BuiltIn GetBuiltIn() const { return built_in_; }
