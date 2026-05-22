@@ -590,83 +590,89 @@ GENERATE_ALL_VEC_SAFE_UNARY_MINUS(int)
 GENERATE_ALL_VEC_SAFE_UNARY_MINUS(long)
 
 
-// safe shuffles
+// ==========================================
+// Safe Shuffle Variants (legacy)
+// ==========================================
 
 template <typename T>
-__device__ __forceinline__ T safe_shfl(T var, int srcLane) {
+__device__ __forceinline__ auto safe_shfl(T var, int srcLane) {
     if constexpr (sizeof(T) == 8) {
         return static_cast<T>(__shfl(static_cast<long long>(var), srcLane, 1));
     } else {
-        return static_cast<T>(__shfl(static_cast<int>(var), srcLane, 1));
+        return __shfl(static_cast<int>(var), srcLane, 1);
     }
 }
 
 template <typename T>
-__device__ __forceinline__ T safe_shfl_up(T var, unsigned int delta) {
+__device__ __forceinline__ auto safe_shfl_up(T var, unsigned int delta) {
     if constexpr (sizeof(T) == 8) {
         return static_cast<T>(__shfl_up(static_cast<long long>(var), delta, 1));
     } else {
-        return static_cast<T>(__shfl_up(static_cast<int>(var), delta, 1));
+        return __shfl_up(static_cast<int>(var), delta, 1);
     }
 }
 
 template <typename T>
-__device__ __forceinline__ T safe_shfl_down(T var, unsigned int delta) {
+__device__ __forceinline__ auto safe_shfl_down(T var, unsigned int delta) {
     if constexpr (sizeof(T) == 8) {
         return static_cast<T>(__shfl_down(static_cast<long long>(var), delta, 1));
     } else {
-        return static_cast<T>(__shfl_down(static_cast<int>(var), delta, 1));
+        return __shfl_down(static_cast<int>(var), delta, 1);
     }
 }
 
 template <typename T>
-__device__ __forceinline__ T safe_shfl_xor(T var, int laneMask) {
+__device__ __forceinline__ auto safe_shfl_xor(T var, int laneMask) {
     if constexpr (sizeof(T) == 8) {
         return static_cast<T>(__shfl_xor(static_cast<long long>(var), laneMask, 1));
     } else {
-        return static_cast<T>(__shfl_xor(static_cast<int>(var), laneMask, 1));
+        return __shfl_xor(static_cast<int>(var), laneMask, 1);
     }
 }
 
-// safe shuffle variants
+// ==========================================
+// Sync Safe Shuffle Variants
+// ==========================================
 
 template <typename T>
-__device__ __forceinline__ T safe_shfl_sync(T var, int srcLane) {
+__device__ __forceinline__ auto safe_shfl_sync(T var, int srcLane) {
     if constexpr (sizeof(T) == 8) {
         return static_cast<T>(__shfl_sync(__activemask(), static_cast<long long>(var), srcLane, 1));
     } else {
-        return static_cast<T>(__shfl_sync(__activemask(), static_cast<int>(var), srcLane, 1));
+        return __shfl_sync(__activemask(), static_cast<int>(var), srcLane, 1);
     }
 }
 
 template <typename T>
-__device__ __forceinline__ T safe_shfl_up_sync(T var, unsigned int delta) {
+__device__ __forceinline__ auto safe_shfl_up_sync(T var, unsigned int delta) {
     if constexpr (sizeof(T) == 8) {
         return static_cast<T>(__shfl_up_sync(__activemask(), static_cast<long long>(var), delta, 1));
     } else {
-        return static_cast<T>(__shfl_up_sync(__activemask(), static_cast<int>(var), delta, 1));
+        return __shfl_up_sync(__activemask(), static_cast<int>(var), delta, 1);
     }
 }
 
 template <typename T>
-__device__ __forceinline__ T safe_shfl_down_sync(T var, unsigned int delta) {
+__device__ __forceinline__ auto safe_shfl_down_sync(T var, unsigned int delta) {
     if constexpr (sizeof(T) == 8) {
         return static_cast<T>(__shfl_down_sync(__activemask(), static_cast<long long>(var), delta, 1));
     } else {
-        return static_cast<T>(__shfl_down_sync(__activemask(), static_cast<int>(var), delta, 1));
+        return __shfl_down_sync(__activemask(), static_cast<int>(var), delta, 1);
     }
 }
 
 template <typename T>
-__device__ __forceinline__ T safe_shfl_xor_sync(T var, int laneMask) {
+__device__ __forceinline__ auto safe_shfl_xor_sync(T var, int laneMask) {
     if constexpr (sizeof(T) == 8) {
         return static_cast<T>(__shfl_xor_sync(__activemask(), static_cast<long long>(var), laneMask, 1));
     } else {
-        return static_cast<T>(__shfl_xor_sync(__activemask(), static_cast<int>(var), laneMask, 1));
+        return __shfl_xor_sync(__activemask(), static_cast<int>(var), laneMask, 1);
     }
 }
 
-// safe warp vote variants
+// ==========================================
+// Sync Warp Vote Variants
+// ==========================================
 
 __device__ __forceinline__ int safe_all_sync(int pred) {
     return __all_sync(__activemask(), pred);
@@ -680,7 +686,9 @@ __device__ __forceinline__ unsigned long long safe_ballot_sync(int pred) {
     return __ballot_sync(__activemask(), pred);
 }
 
-// safe warp matches
+// ==========================================
+// Warp Match Variants
+// ==========================================
 
 template <typename T>
 __device__ __forceinline__ unsigned long long safe_match_any(T val) {
