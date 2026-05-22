@@ -24,6 +24,7 @@ DistributionTable *hip_sync_func_table = NULL;
 DistributionTable *hip_warp_vote_func_table = NULL;
 DistributionTable *hip_warp_match_func_table = NULL;
 DistributionTable *hip_warp_shuffle_func_table = NULL;
+DistributionTable *hip_warp_reduce_func_table = NULL;
 
 const char *const kSyncNames[4] = {"",  // Sentinel
                                    "__syncthreads_count", "__syncthreads_and",
@@ -51,6 +52,14 @@ const char *const kWarpShuffleNames[] = {"",  // Sentinel
                                          "safe_shfl_up_sync",
                                          "safe_shfl_down_sync",
                                          "safe_shfl_xor_sync"};
+
+const char *const kWarpReduceNames[] = {"",  // Sentinel
+                                        "safe_reduce_add_sync",
+                                        "safe_reduce_min_sync",
+                                        "safe_reduce_max_sync",
+                                        "safe_reduce_and_sync",
+                                        "safe_reduce_or_sync",
+                                        "safe_reduce_xor_sync"};
 }  // namespace
 
 // base class
@@ -59,17 +68,20 @@ FunctionInvocationHIPBuiltIn *FunctionInvocationHIPBuiltIn::make_random(
     CGContext &cg_context, const Type &type) {
   if (type.eType == eSimple) {
     int choice = rnd_upto(100);
-    if (choice < 25 && HIPOptions::hip_sync()) {
+    if (choice < 20 && HIPOptions::hip_sync()) {
       return FunctionInvocationHIPSyncBuiltIn::make_random(cg_context, type);
-    } else if (choice < 50 && HIPOptions::hip_warp()) {
+    } else if (choice < 40 && HIPOptions::hip_warp()) {
       return FunctionInvocationHIPWarpVoteBuiltIn::make_random(cg_context,
                                                                type);
-    } else if (choice < 75 && HIPOptions::hip_warp_match()) {
+    } else if (choice < 60 && HIPOptions::hip_warp_match()) {
       return FunctionInvocationHIPWarpMatchBuiltIn::make_random(cg_context,
                                                                 type);
-    } else if (HIPOptions::hip_warp_shuffle()) {
+    } else if (choice < 80 && HIPOptions::hip_warp_shuffle()) {
       return FunctionInvocationHIPWarpShuffleBuiltIn::make_random(cg_context,
                                                                   type);
+    } else if (HIPOptions::hip_warp_reduce()) {
+      return FunctionInvocationHIPWarpReduceBuiltIn::make_random(cg_context,
+                                                                 type);
     }
   }
   return NULL;
@@ -80,6 +92,7 @@ void FunctionInvocationHIPBuiltIn::InitTables() {
   FunctionInvocationHIPWarpVoteBuiltIn::InitTables();
   FunctionInvocationHIPWarpMatchBuiltIn::InitTables();
   FunctionInvocationHIPWarpShuffleBuiltIn::InitTables();
+  FunctionInvocationHIPWarpReduceBuiltIn::InitTables();
 }
 
 void FunctionInvocationHIPBuiltIn::Output(std::ostream &out) const {
@@ -388,12 +401,6 @@ const Type &FunctionInvocationHIPWarpMatchBuiltIn::GetParameterType(
 FunctionInvocationHIPWarpShuffleBuiltIn *
 FunctionInvocationHIPWarpShuffleBuiltIn::make_random(CGContext &cg_context,
                                                      const Type &type) {
-  // T can be 32-bit int or 64-bit int only for fuzzing
-  // no flots or doubles
-  const Type *possible_t_types[] = {&Type::get_simple_type(eInt),
-                                    &Type::get_simple_type(eLongLong)};
-  const Type *t_type = possible_t_types[rnd_upto(2)];
-
   std::vector<const Type *> param_types;
   enum BuiltIn func = FunctionSelector(type, &param_types);
 
@@ -404,8 +411,6 @@ FunctionInvocationHIPWarpShuffleBuiltIn::make_random(CGContext &cg_context,
   FunctionInvocationHIPWarpShuffleBuiltIn *fi =
       new FunctionInvocationHIPWarpShuffleBuiltIn(func, type);
 
-  // we are using the safe version so no dummy for activemask or width
-  // as those will be hardcoded in the safe header
   for (size_t i = 0; i < param_types.size(); ++i) {
     fi->param_value.push_back(
         Expression::make_random(cg_context, param_types[i]));
@@ -419,17 +424,21 @@ FunctionInvocationHIPWarpShuffleBuiltIn::FunctionSelector(
   assert(params != NULL);
   params->clear();
 
+  // support any scalar int
+  if (type.eType != eSimple || type.simple_type == eFloat) {
+    return kIdentity;
+  }
+
   assert(hip_warp_shuffle_func_table != NULL);
   VectorFilter filter(hip_warp_shuffle_func_table);
 
   int rnd = rnd_upto(filter.get_max_prob(), &filter);
   enum BuiltIn func = (enum BuiltIn)filter.lookup(rnd);
 
-  // 1. T var is always the first parameter
+  // T var arg
   params->push_back(&type);
 
-  // 2. lane/delta/mask argument.
-  // _up and _down use Uint, others use int.
+  // lane/delta/mask arg
   if (func == kShflUp || func == kShflDown || func == kShflUpSync ||
       func == kShflDownSync) {
     params->push_back(&Type::get_simple_type(eUInt));
@@ -469,21 +478,10 @@ void FunctionInvocationHIPWarpShuffleBuiltIn::OutputFuncName(
 
 const Type &FunctionInvocationHIPWarpShuffleBuiltIn::GetParameterType(
     size_t idx) const {
-  bool is_sync = (built_in_ >= kShflSync);
-  bool is_width = (idx == (is_sync ? 3 : 2));
+  // T var arg
+  if (idx == 0) return type_;
 
-  if (is_width) {
-    return Type::get_simple_type(eInt);  // width
-  }
-
-  if (is_sync) {
-    if (idx == 0) return Type::get_simple_type(eULongLong);
-    if (idx == 1) return type_;  // T var
-  } else {
-    if (idx == 0) return type_;  // T var
-  }
-
-  // lane/delta arguments
+  // lane/delta/mask arg
   if (built_in_ == kShflUp || built_in_ == kShflDown ||
       built_in_ == kShflUpSync || built_in_ == kShflDownSync) {
     return Type::get_simple_type(eUInt);
@@ -492,5 +490,80 @@ const Type &FunctionInvocationHIPWarpShuffleBuiltIn::GetParameterType(
 }
 
 // warp shuffle end
+
+// WARP Reduce start
+
+FunctionInvocationHIPWarpReduceBuiltIn *
+FunctionInvocationHIPWarpReduceBuiltIn::make_random(CGContext &cg_context,
+                                                    const Type &type) {
+  std::vector<const Type *> param_types;
+  enum BuiltIn func = FunctionSelector(type, &param_types);
+
+  if (func == kIdentity) {
+    return NULL;
+  }
+
+  FunctionInvocationHIPWarpReduceBuiltIn *fi =
+      new FunctionInvocationHIPWarpReduceBuiltIn(func, type);
+
+  for (size_t i = 0; i < param_types.size(); ++i) {
+    fi->param_value.push_back(
+        Expression::make_random(cg_context, param_types[i]));
+  }
+  return fi;
+}
+
+enum FunctionInvocationHIPWarpReduceBuiltIn::BuiltIn
+FunctionInvocationHIPWarpReduceBuiltIn::FunctionSelector(
+    const Type &type, std::vector<const Type *> *params) {
+  assert(params != NULL);
+  params->clear();
+
+  // support all scalar int types
+  if (type.eType != eSimple || type.simple_type == eFloat) {
+    return kIdentity;
+  }
+
+  assert(hip_warp_reduce_func_table != NULL);
+  VectorFilter filter(hip_warp_reduce_func_table);
+
+  int rnd = rnd_upto(filter.get_max_prob(), &filter);
+  enum BuiltIn func = (enum BuiltIn)filter.lookup(rnd);
+
+  params->push_back(&type);
+  return func;
+}
+
+void FunctionInvocationHIPWarpReduceBuiltIn::InitTables() {
+  hip_warp_reduce_func_table = new DistributionTable();
+  hip_warp_reduce_func_table->add_entry(kReduceAddSync, 10);
+  hip_warp_reduce_func_table->add_entry(kReduceMinSync, 10);
+  hip_warp_reduce_func_table->add_entry(kReduceMaxSync, 10);
+  hip_warp_reduce_func_table->add_entry(kReduceAndSync, 10);
+  hip_warp_reduce_func_table->add_entry(kReduceOrSync, 10);
+  hip_warp_reduce_func_table->add_entry(kReduceXorSync, 10);
+}
+
+FunctionInvocationHIPWarpReduceBuiltIn *
+FunctionInvocationHIPWarpReduceBuiltIn::clone() const {
+  FunctionInvocationHIPWarpReduceBuiltIn *fi =
+      new FunctionInvocationHIPWarpReduceBuiltIn(built_in_, type_);
+  for (const Expression *expr : param_value) {
+    fi->param_value.push_back(expr->clone());
+  }
+  return fi;
+}
+
+void FunctionInvocationHIPWarpReduceBuiltIn::OutputFuncName(
+    std::ostream &out) const {
+  out << kWarpReduceNames[built_in_];
+}
+
+const Type &FunctionInvocationHIPWarpReduceBuiltIn::GetParameterType(
+    size_t idx) const {
+  return type_;  // T var
+}
+
+// WARP Reduce end
 
 }  // namespace HIPSmith

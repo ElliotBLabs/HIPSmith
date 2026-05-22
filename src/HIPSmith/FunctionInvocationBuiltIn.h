@@ -18,7 +18,13 @@ namespace HIPSmith {
 // Base class for HIP built-in functions
 class FunctionInvocationHIPBuiltIn : public FunctionInvocation {
  public:
-  enum BuiltInType { kSyncPredicates = 0, kWarpVote, kWarpMatch, kWarpShuffle };
+  enum BuiltInType {
+    kSyncPredicates = 0,
+    kWarpVote,
+    kWarpMatch,
+    kWarpShuffle,
+    kWarpReduce
+  };
 
   FunctionInvocationHIPBuiltIn(enum BuiltInType built_in_type, const Type& type)
       : FunctionInvocation(eHIPBuiltin, SafeOpFlags::make_dummy_flags()),
@@ -212,6 +218,46 @@ class FunctionInvocationHIPWarpShuffleBuiltIn
 };
 
 // shuffle end
+
+// warp reduce start
+class FunctionInvocationHIPWarpReduceBuiltIn
+    : public FunctionInvocationHIPBuiltIn {
+ public:
+  enum BuiltIn {
+    kIdentity = 0,  // Sentinel
+    kReduceAddSync,
+    kReduceMinSync,
+    kReduceMaxSync,
+    kReduceAndSync,
+    kReduceOrSync,
+    kReduceXorSync
+  };
+
+  FunctionInvocationHIPWarpReduceBuiltIn(enum BuiltIn built_in, const Type& type)
+      : FunctionInvocationHIPBuiltIn(kWarpReduce, type), built_in_(built_in) {}
+  FunctionInvocationHIPWarpReduceBuiltIn(
+      FunctionInvocationHIPWarpReduceBuiltIn&& other) = default;
+  FunctionInvocationHIPWarpReduceBuiltIn& operator=(
+      FunctionInvocationHIPWarpReduceBuiltIn&& other) = default;
+  virtual ~FunctionInvocationHIPWarpReduceBuiltIn() {}
+
+  static FunctionInvocationHIPWarpReduceBuiltIn* make_random(
+      CGContext& cg_context, const Type& type);
+  static enum BuiltIn FunctionSelector(const Type& type,
+                                       std::vector<const Type*>* params);
+  static void InitTables();
+
+  FunctionInvocationHIPWarpReduceBuiltIn* clone() const override;
+  void OutputFuncName(std::ostream& out) const override;
+  const Type& GetParameterType(size_t idx) const override;
+
+  enum BuiltIn GetBuiltIn() const { return built_in_; }
+
+ private:
+  enum BuiltIn built_in_;
+  DISALLOW_COPY_AND_ASSIGN(FunctionInvocationHIPWarpReduceBuiltIn);
+};
+// warp reduce end
 
 }  // namespace HIPSmith
 

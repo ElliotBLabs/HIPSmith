@@ -1,4 +1,6 @@
 #include <cstdint>
+#include <type_traits>
+
 #include <hip/hip_runtime.h>
 
 #define DEVICE_FORCE_INLINE __device__ __forceinline__
@@ -725,3 +727,35 @@ __device__ __forceinline__ unsigned long long safe_match_all_sync(T val, int* pr
         return __match_all_sync(__activemask(), static_cast<int>(val), pred);
     }
 }
+
+
+// ==========================================
+// Sync Warp Reduce Variants
+// ==========================================
+
+#define GENERATE_REDUCE_SYNC_WRAPPER(FUNC_NAME, INTRINSIC_NAME) \
+template <typename T> \
+__device__ __forceinline__ auto FUNC_NAME(T var) { \
+    if constexpr (sizeof(T) == 8) { \
+        if constexpr (std::is_signed_v<T>) { \
+            return static_cast<T>(INTRINSIC_NAME(__activemask(), static_cast<long long>(var))); \
+        } else { \
+            return static_cast<T>(INTRINSIC_NAME(__activemask(), static_cast<unsigned long long>(var))); \
+        } \
+    } else { \
+        if constexpr (std::is_signed_v<T>) { \
+            return static_cast<T>(INTRINSIC_NAME(__activemask(), static_cast<int>(var))); \
+        } else { \
+            return static_cast<T>(INTRINSIC_NAME(__activemask(), static_cast<unsigned int>(var))); \
+        } \
+    } \
+}
+
+GENERATE_REDUCE_SYNC_WRAPPER(safe_reduce_add_sync, __reduce_add_sync)
+GENERATE_REDUCE_SYNC_WRAPPER(safe_reduce_min_sync, __reduce_min_sync)
+GENERATE_REDUCE_SYNC_WRAPPER(safe_reduce_max_sync, __reduce_max_sync)
+GENERATE_REDUCE_SYNC_WRAPPER(safe_reduce_and_sync, __reduce_and_sync)
+GENERATE_REDUCE_SYNC_WRAPPER(safe_reduce_or_sync,  __reduce_or_sync)
+GENERATE_REDUCE_SYNC_WRAPPER(safe_reduce_xor_sync, __reduce_xor_sync)
+
+#undef GENERATE_REDUCE_SYNC_WRAPPER
