@@ -71,6 +71,11 @@ int main(int argc, char **argv) {
       continue;
     }
 
+    if (strcmp(argv[idx], "--hip-warp-reduce") == 0) {
+      HIPSmith::HIPOptions::hip_warp_reduce(true);
+      continue;
+    }
+
     if (strcmp(argv[idx], "--small") == 0) {
       HIPSmith::HIPOptions::small(true);
       continue;
