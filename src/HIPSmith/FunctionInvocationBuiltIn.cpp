@@ -29,13 +29,18 @@ const char *const kSyncNames[4] = {"",  // Sentinel
                                    "__syncthreads_count", "__syncthreads_and",
                                    "__syncthreads_or"};
 
-const char *const kWarpVoteNames[] = {
-    "",  // Sentinel
-    "__all",      "__any",      "__ballot",     "__activemask",
-    "safe_all_sync", "safe_any_sync", "safe_ballot_sync"};
+const char *const kWarpVoteNames[] = {"",  // Sentinel
+                                      "__all",
+                                      "__any",
+                                      "__ballot",
+                                      "__activemask",
+                                      "safe_all_sync",
+                                      "safe_any_sync",
+                                      "safe_ballot_sync"};
 
 const char *const kWarpMatchNames[] = {"", "safe_match_any", "safe_match_all",
-                                       "safe_match_any_sync", "safe_match_all_sync"};
+                                       "safe_match_any_sync",
+                                       "safe_match_all_sync"};
 
 const char *const kWarpShuffleNames[] = {"",  // Sentinel
                                          "safe_shfl",
@@ -259,7 +264,8 @@ FunctionInvocationHIPWarpMatchBuiltIn::make_random(CGContext &cg_context,
 
   for (size_t i = 0; i < param_types.size(); ++i) {
     // pred always at index 1
-    bool is_pred_param = (i == 1 && (func == kMatchAll || func == kMatchAllSync));
+    bool is_pred_param =
+        (i == 1 && (func == kMatchAll || func == kMatchAllSync));
 
     if (is_pred_param) {
       const Type *base_type = &Type::get_simple_type(eInt);
@@ -271,10 +277,13 @@ FunctionInvocationHIPWarpMatchBuiltIn::make_random(CGContext &cg_context,
           VariableSelector::select(Effect::WRITE, cg_context, base_type, &qfer,
                                    invalid_vars, eExact, eParentLocal);
 
-      if (!pred_var || pred_var->isBitfield_ || pred_var->type->simple_type != eInt) {
-        if (func == kMatchAll) fi->built_in_ = kMatchAny;
-        else if (func == kMatchAllSync) fi->built_in_ = kMatchAnySync;
-        continue; 
+      if (!pred_var || pred_var->isBitfield_ ||
+          pred_var->type->simple_type != eInt) {
+        if (func == kMatchAll)
+          fi->built_in_ = kMatchAny;
+        else if (func == kMatchAllSync)
+          fi->built_in_ = kMatchAnySync;
+        continue;
       }
 
       ExpressionVariable *addr_expr =
@@ -348,7 +357,8 @@ void FunctionInvocationHIPWarpMatchBuiltIn::Output(std::ostream &out) const {
 
   for (size_t idx = 0; idx < param_value.size(); ++idx) {
     // Only thing this function needs to do now is insert the '&'
-    bool is_pred = (idx == 1 && (built_in_ == kMatchAll || built_in_ == kMatchAllSync));
+    bool is_pred =
+        (idx == 1 && (built_in_ == kMatchAll || built_in_ == kMatchAllSync));
 
     if (is_pred) {
       out << "&(";
@@ -394,7 +404,7 @@ FunctionInvocationHIPWarpShuffleBuiltIn::make_random(CGContext &cg_context,
   FunctionInvocationHIPWarpShuffleBuiltIn *fi =
       new FunctionInvocationHIPWarpShuffleBuiltIn(func, type);
 
-  // we are using the safe version so no dummy for activemask or width 
+  // we are using the safe version so no dummy for activemask or width
   // as those will be hardcoded in the safe header
   for (size_t i = 0; i < param_types.size(); ++i) {
     fi->param_value.push_back(
@@ -418,7 +428,7 @@ FunctionInvocationHIPWarpShuffleBuiltIn::FunctionSelector(
   // 1. T var is always the first parameter
   params->push_back(&type);
 
-  // 2. lane/delta/mask argument. 
+  // 2. lane/delta/mask argument.
   // _up and _down use Uint, others use int.
   if (func == kShflUp || func == kShflDown || func == kShflUpSync ||
       func == kShflDownSync) {
@@ -456,7 +466,6 @@ void FunctionInvocationHIPWarpShuffleBuiltIn::OutputFuncName(
     std::ostream &out) const {
   out << kWarpShuffleNames[built_in_];
 }
-  
 
 const Type &FunctionInvocationHIPWarpShuffleBuiltIn::GetParameterType(
     size_t idx) const {
@@ -464,7 +473,7 @@ const Type &FunctionInvocationHIPWarpShuffleBuiltIn::GetParameterType(
   bool is_width = (idx == (is_sync ? 3 : 2));
 
   if (is_width) {
-    return Type::get_simple_type(eInt); // width
+    return Type::get_simple_type(eInt);  // width
   }
 
   if (is_sync) {
