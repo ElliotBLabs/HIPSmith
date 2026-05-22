@@ -165,7 +165,7 @@ class FunctionInvocationHIPWarpMatchBuiltIn
 
  private:
   enum BuiltIn built_in_;
-  const Type& t_type_; 
+  const Type& t_type_;
   DISALLOW_COPY_AND_ASSIGN(FunctionInvocationHIPWarpMatchBuiltIn);
 };
 
@@ -185,9 +185,9 @@ class FunctionInvocationHIPWarpShuffleBuiltIn
     kShflXorSync
   };
 
-  FunctionInvocationHIPWarpShuffleBuiltIn(enum BuiltIn built_in, const Type& type)
-      : FunctionInvocationHIPBuiltIn(kWarpShuffle, type),
-        built_in_(built_in) {}
+  FunctionInvocationHIPWarpShuffleBuiltIn(enum BuiltIn built_in,
+                                          const Type& type)
+      : FunctionInvocationHIPBuiltIn(kWarpShuffle, type), built_in_(built_in) {}
   FunctionInvocationHIPWarpShuffleBuiltIn(
       FunctionInvocationHIPWarpShuffleBuiltIn&& other) = default;
   FunctionInvocationHIPWarpShuffleBuiltIn& operator=(
