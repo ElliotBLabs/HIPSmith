@@ -489,6 +489,11 @@ Variable* VariableSelector::choose_var(
     for (size_t j = 0; j < ok_vars.size(); j++) {
       Variable* vv = ok_vars[j];
       if (type->get_indirect_level() > vv->type->get_indirect_level()) {
+         // cannot take the address of a builtin
+        if (vv->is_hip_builtin()) {
+          continue;
+        }
+
         // don't take the address of an union field if flag
         // "take_no_union_field_addr" is on
         if (!CGOptions::take_union_field_addr() &&
@@ -604,7 +609,7 @@ Variable* VariableSelector::GenerateHIPConstant(const CGContext& cg_context) {
   // even though this will be a const in our eyes we dont want to confuse
   // csmith internals by using the constant qualifier
   CVQualifiers var_qfer;
-  var_qfer.add_qualifiers(false, false);
+  var_qfer.add_qualifiers(true, false);
 
   // naming convention will be hip_const_***
   string name = gensym("hip_const_");

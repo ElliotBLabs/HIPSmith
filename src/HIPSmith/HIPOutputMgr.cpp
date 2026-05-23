@@ -100,7 +100,7 @@ void HIPOutputMgr::OutputHipGlobals() {
       }
 
       var->OutputDecl(out);
-      out << ";" << std::endl;
+      out << " = {};" << std::endl;
 
     } else if (var->is_hip_managed()) {
       // output global def of a managed variable
