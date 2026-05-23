@@ -1072,7 +1072,8 @@ Expression* VariableSelector::make_init_value(Effect::Access access,
     if (deref_level < 0) Bookkeeper::record_address_taken(var);
 
     // Assumes it can generate anything, best we can do atm is try again ...
-    if (var->isArray && static_cast<ArrayVariable*>(var)->isVector)
+    // also block addresses of hip builtins
+    if (var->isArray && static_cast<ArrayVariable*>(var)->isVector || deref_level < 0 && var->is_hip_builtin())
       return make_init_value(access, cg_context, t, qf, b);
   }
 
@@ -1329,7 +1330,9 @@ Variable* VariableSelector::SelectLoopCtrlVar(
   // pointer effect
   size_t len = vars.size();
   for (size_t i = 0; i < len; i++) {
-    if (vars[i]->is_hip_const() ||
+    if (vars[i]->is_hip_builtin() ||
+        vars[i]->is_hip_device()  ||
+        vars[i]->is_hip_const()   ||
         vars[i]->type &&
             (!vars[i]->type->has_int_field() ||  // remove variables isn't (or
                                                  // doesn't contain) integers

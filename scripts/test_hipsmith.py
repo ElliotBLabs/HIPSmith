@@ -15,7 +15,7 @@ ROOT_DIR = os.path.abspath(".")
 
 # The compilation command as a list of arguments
 COMPILE_CMD = [
-    "hipcc", "-x", "hip", "HIP-driver.cpp", "HIPProg.hip", "-I", ROOT_DIR,
+    "hipcc", "-x", "hip", "-DHIP_ENABLE_EXTRA_WARP_SYNC_TYPES=1", "HIP-driver.cpp", "HIPProg.hip", "-I", ROOT_DIR,
     "-Werror=uninitialized", "-Werror=missing-field-initializers",
     "-Werror=array-bounds", "-Werror=zero-length-array",
     "-fno-strict-aliasing", "-Wno-c++11-narrowing", "-Wno-unused-value",
@@ -27,7 +27,7 @@ def run_fuzz_iteration(i):
     with tempfile.TemporaryDirectory() as tmpdir:
         # 1. Generate the HIP program
         try:
-            gen_proc = subprocess.run([HIPSMITH_PATH, "--vectors", "--hip-consts", "--hip-shared"], 
+            gen_proc = subprocess.run([HIPSMITH_PATH, "--hip-warp", "--hip-warp-match", "--hip-builtins", "--hip-sync", "--hip-device", "--vectors", "--hip-consts", "--hip-warp-reduce"], 
                                       cwd=tmpdir, 
                                       stdout=subprocess.DEVNULL, 
                                       stderr=subprocess.DEVNULL)
