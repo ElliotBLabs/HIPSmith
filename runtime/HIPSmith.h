@@ -738,15 +738,15 @@ template <typename T> \
 __device__ __forceinline__ auto FUNC_NAME(T var) { \
     if constexpr (sizeof(T) == 8) { \
         if constexpr (std::is_signed_v<T>) { \
-            return static_cast<T>(INTRINSIC_NAME(__activemask(), static_cast<long long>(var))); \
+            return INTRINSIC_NAME(__activemask(), static_cast<long long>(var)); \
         } else { \
-            return static_cast<T>(INTRINSIC_NAME(__activemask(), static_cast<unsigned long long>(var))); \
+            return INTRINSIC_NAME(__activemask(), static_cast<unsigned long long>(var)); \
         } \
     } else { \
         if constexpr (std::is_signed_v<T>) { \
-            return static_cast<T>(INTRINSIC_NAME(__activemask(), static_cast<int>(var))); \
+            return INTRINSIC_NAME(__activemask(), static_cast<int>(var)); \
         } else { \
-            return static_cast<T>(INTRINSIC_NAME(__activemask(), static_cast<unsigned int>(var))); \
+            return INTRINSIC_NAME(__activemask(), static_cast<unsigned int>(var)); \
         } \
     } \
 }
