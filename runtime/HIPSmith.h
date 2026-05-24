@@ -759,3 +759,50 @@ GENERATE_REDUCE_SYNC_WRAPPER(safe_reduce_or_sync,  __reduce_or_sync)
 GENERATE_REDUCE_SYNC_WRAPPER(safe_reduce_xor_sync, __reduce_xor_sync)
 
 #undef GENERATE_REDUCE_SYNC_WRAPPER
+
+// ==========================================
+// Safe Atomic Variants (Single-Thread Optimized)
+// ==========================================
+// Only Add and Sub can cause C++ arithmetic UB (signed overflow/underflow).
+// All other atomic operations (Min, Max, Bitwise, Exch, CAS, unsigned Inc/Dec)
+// are free of arithmetic UB and are generated natively by the fuzzer.
+
+// ==========================================
+// Safe Atomic Variants (Single-Thread Optimized)
+// ==========================================
+
+#define GENERATE_SAFE_ATOMIC_ADD_ST(FUNC_NAME, NATIVE_FUNC) \
+template <typename T, typename U> \
+__device__ __forceinline__ T FUNC_NAME(T* address, U val_in) { \
+    T val = static_cast<T>(val_in); \
+    if constexpr (std::is_signed_v<T>) { \
+        T old = *address; \
+        if (!check_safe_add<T>(old, val)) return old; \
+        return NATIVE_FUNC(address, val); \
+    } else { \
+        return NATIVE_FUNC(address, val); \
+    } \
+}
+
+#define GENERATE_SAFE_ATOMIC_SUB_ST(FUNC_NAME, NATIVE_FUNC) \
+template <typename T, typename U> \
+__device__ __forceinline__ T FUNC_NAME(T* address, U val_in) { \
+    T val = static_cast<T>(val_in); \
+    if constexpr (std::is_signed_v<T>) { \
+        T old = *address; \
+        if (!check_safe_sub<T>(old, val)) return old; \
+        return NATIVE_FUNC(address, val); \
+    } else { \
+        return NATIVE_FUNC(address, val); \
+    } \
+}
+
+// Instantiate Add and Sub wrappers
+GENERATE_SAFE_ATOMIC_ADD_ST(safe_atomicAdd, atomicAdd)
+GENERATE_SAFE_ATOMIC_ADD_ST(safe_atomicAdd_system, atomicAdd_system)
+
+GENERATE_SAFE_ATOMIC_SUB_ST(safe_atomicSub, atomicSub)
+GENERATE_SAFE_ATOMIC_SUB_ST(safe_atomicSub_system, atomicSub_system)
+
+#undef GENERATE_SAFE_ATOMIC_ADD_ST
+#undef GENERATE_SAFE_ATOMIC_SUB_ST

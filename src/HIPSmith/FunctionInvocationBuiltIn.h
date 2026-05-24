@@ -23,7 +23,8 @@ class FunctionInvocationHIPBuiltIn : public FunctionInvocation {
     kWarpVote,
     kWarpMatch,
     kWarpShuffle,
-    kWarpReduce
+    kWarpReduce,
+    kAtomic
   };
 
   FunctionInvocationHIPBuiltIn(enum BuiltInType built_in_type, const Type& type)
@@ -258,6 +259,49 @@ class FunctionInvocationHIPWarpReduceBuiltIn
   DISALLOW_COPY_AND_ASSIGN(FunctionInvocationHIPWarpReduceBuiltIn);
 };
 // warp reduce end
+
+// ==========================================
+// HIP Atomic start
+// ==========================================
+class FunctionInvocationHIPAtomicBuiltIn : public FunctionInvocationHIPBuiltIn {
+public:
+  enum BuiltIn {
+    kIdentity = 0,
+    kAtomicAdd, kAtomicAddSystem,
+    kAtomicSub, kAtomicSubSystem,
+    kAtomicMin, kAtomicMinSystem,
+    kAtomicMax, kAtomicMaxSystem,
+    kAtomicExch, kAtomicExchSystem,
+    kAtomicCAS, kAtomicCASSystem,
+    kAtomicAnd, kAtomicAndSystem,
+    kAtomicOr, kAtomicOrSystem,
+    kAtomicXor, kAtomicXorSystem,
+    kAtomicInc, kAtomicIncSystem,
+    kAtomicDec, kAtomicDecSystem
+  };
+
+  static FunctionInvocationHIPAtomicBuiltIn *make_random(CGContext &cg_context,
+                                                         const Type &type);
+  static void InitTables();
+  
+  FunctionInvocationHIPAtomicBuiltIn *clone() const override;
+  void Output(std::ostream &out) const override;
+  void OutputFuncName(std::ostream &out) const override;
+  const Type &GetParameterType(size_t idx) const override;
+
+protected:
+  FunctionInvocationHIPAtomicBuiltIn(enum BuiltIn func, const Type &type)
+      : FunctionInvocationHIPBuiltIn(kAtomic, type), built_in_(func), type_(type) {}
+
+  static enum BuiltIn FunctionSelector(const Type &type,
+                                       std::vector<const Type *> *params);
+
+  enum BuiltIn built_in_;
+  const Type &type_;
+};
+// ==========================================
+// HIP Atomic end
+// ==========================================
 
 }  // namespace HIPSmith
 

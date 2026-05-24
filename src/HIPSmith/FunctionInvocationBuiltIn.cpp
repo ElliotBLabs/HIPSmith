@@ -25,6 +25,7 @@ DistributionTable *hip_warp_vote_func_table = NULL;
 DistributionTable *hip_warp_match_func_table = NULL;
 DistributionTable *hip_warp_shuffle_func_table = NULL;
 DistributionTable *hip_warp_reduce_func_table = NULL;
+DistributionTable *hip_atomic_func_table = NULL;
 
 const char *const kSyncNames[4] = {"",  // Sentinel
                                    "__syncthreads_count", "__syncthreads_and",
@@ -60,31 +61,68 @@ const char *const kWarpReduceNames[] = {"",  // Sentinel
                                         "safe_reduce_and_sync",
                                         "safe_reduce_or_sync",
                                         "safe_reduce_xor_sync"};
+
+const char *const kAtomicNames[] = {
+    "",  // Sentinel
+    "safe_atomicAdd", "safe_atomicAdd_system",
+    "safe_atomicSub", "safe_atomicSub_system",
+    "atomicMin", "atomicMin_system",      // Native
+    "atomicMax", "atomicMax_system",      // Native
+    "atomicExch", "atomicExch_system",    // Native
+    "atomicCAS", "atomicCAS_system",      // Native
+    "atomicAnd", "atomicAnd_system",      // Native
+    "atomicOr", "atomicOr_system",        // Native
+    "atomicXor", "atomicXor_system",      // Native
+    "atomicInc", "atomicInc_system",      // Native
+    "atomicDec", "atomicDec_system"       // Native
+};
 }  // namespace
 
 // base class
 
 FunctionInvocationHIPBuiltIn *FunctionInvocationHIPBuiltIn::make_random(
     CGContext &cg_context, const Type &type) {
-  if (type.eType == eSimple) {
-    int choice = rnd_upto(100);
-    if (choice < 20 && HIPOptions::hip_sync()) {
-      return FunctionInvocationHIPSyncBuiltIn::make_random(cg_context, type);
-    } else if (choice < 40 && HIPOptions::hip_warp()) {
-      return FunctionInvocationHIPWarpVoteBuiltIn::make_random(cg_context,
-                                                               type);
-    } else if (choice < 60 && HIPOptions::hip_warp_match()) {
-      return FunctionInvocationHIPWarpMatchBuiltIn::make_random(cg_context,
-                                                                type);
-    } else if (choice < 80 && HIPOptions::hip_warp_shuffle()) {
-      return FunctionInvocationHIPWarpShuffleBuiltIn::make_random(cg_context,
-                                                                  type);
-    } else if (HIPOptions::hip_warp_reduce()) {
-      return FunctionInvocationHIPWarpReduceBuiltIn::make_random(cg_context,
-                                                                 type);
-    }
+  
+  // Built-ins generally operate on simple scalar types (ints)
+  if (type.eType != eSimple) {
+    return NULL;
   }
-  return NULL;
+
+  // 1. Dynamically gather only the enabled options into a list using the class enum
+  std::vector<BuiltInType> active_categories;
+
+  if (HIPOptions::hip_sync())         active_categories.push_back(kSyncPredicates);
+  if (HIPOptions::hip_warp())         active_categories.push_back(kWarpVote);
+  if (HIPOptions::hip_warp_match())   active_categories.push_back(kWarpMatch);
+  if (HIPOptions::hip_warp_shuffle()) active_categories.push_back(kWarpShuffle);
+  if (HIPOptions::hip_warp_reduce())  active_categories.push_back(kWarpReduce);
+  if (HIPOptions::hip_atomic())       active_categories.push_back(kAtomic);
+
+  // 2. If no builtin flags were passed, exit safely
+  if (active_categories.empty()) {
+    return NULL;
+  }
+
+  // 3. Select a random index from 0 to (size - 1)
+  int random_index = rnd_upto(active_categories.size());
+
+  // 4. Fetch the category at that random index and dispatch
+  switch (active_categories[random_index]) {
+    case kSyncPredicates:
+      return FunctionInvocationHIPSyncBuiltIn::make_random(cg_context, type);
+    case kWarpVote:
+      return FunctionInvocationHIPWarpVoteBuiltIn::make_random(cg_context, type);
+    case kWarpMatch:
+      return FunctionInvocationHIPWarpMatchBuiltIn::make_random(cg_context, type);
+    case kWarpShuffle:
+      return FunctionInvocationHIPWarpShuffleBuiltIn::make_random(cg_context, type);
+    case kWarpReduce:
+      return FunctionInvocationHIPWarpReduceBuiltIn::make_random(cg_context, type);
+    case kAtomic:
+      return FunctionInvocationHIPAtomicBuiltIn::make_random(cg_context, type);
+    default:
+      return NULL;
+  }
 }
 
 void FunctionInvocationHIPBuiltIn::InitTables() {
@@ -93,6 +131,7 @@ void FunctionInvocationHIPBuiltIn::InitTables() {
   FunctionInvocationHIPWarpMatchBuiltIn::InitTables();
   FunctionInvocationHIPWarpShuffleBuiltIn::InitTables();
   FunctionInvocationHIPWarpReduceBuiltIn::InitTables();
+  FunctionInvocationHIPAtomicBuiltIn::InitTables();
 }
 
 void FunctionInvocationHIPBuiltIn::Output(std::ostream &out) const {
@@ -566,4 +605,168 @@ const Type &FunctionInvocationHIPWarpReduceBuiltIn::GetParameterType(
 
 // WARP Reduce end
 
+// atomics
+// ==========================================
+// HIP ATOMIC GENERATION
+// ==========================================
+
+FunctionInvocationHIPAtomicBuiltIn *
+FunctionInvocationHIPAtomicBuiltIn::make_random(CGContext &cg_context,
+                                                const Type &type) {
+  // explicitly block other int types that are not supported
+  bool valid_atomic = (type.simple_type == eInt || type.simple_type == eUInt ||
+                       type.simple_type == eLong || type.simple_type == eULong ||
+                       type.simple_type == eLongLong || type.simple_type == eULongLong);
+                       
+  if (!valid_atomic) {
+    return NULL;
+  }
+
+  std::vector<const Type *> param_types;
+  enum BuiltIn func = FunctionSelector(type, &param_types);
+
+  if (func == kIdentity) {
+    return NULL;
+  }
+
+  FunctionInvocationHIPAtomicBuiltIn *fi =
+      new FunctionInvocationHIPAtomicBuiltIn(func, type);
+
+  for (size_t i = 0; i < param_types.size(); ++i) {
+    if (i == 0) {
+      // First arg is always the address. We fetch a local/global variable 
+      // of matching type and flag its address as taken.
+      const Type *base_type = param_types[i];
+      CVQualifiers qfer;
+      qfer.add_qualifiers(false, false);
+      std::vector<const Variable *> invalid_vars;
+
+      Variable *addr_var =
+          VariableSelector::select(Effect::WRITE, cg_context, base_type, &qfer,
+                                   invalid_vars, eExact, eParentLocal);
+
+      if (!addr_var || addr_var->isBitfield_ ||
+          addr_var->type->simple_type != base_type->simple_type) {
+        delete fi;
+        return NULL;
+      }
+
+      ExpressionVariable *addr_expr =
+          new ExpressionVariable(*addr_var, param_types[i]);
+      Bookkeeper::record_address_taken(addr_var);
+      Bookkeeper::record_volatile_access(addr_var, -1, false);
+
+      fi->param_value.push_back(addr_expr);
+    } else {
+      // Remaining args (val, compare) are generated randomly
+      fi->param_value.push_back(
+          Expression::make_random(cg_context, param_types[i]));
+    }
+  }
+  return fi;
+}
+
+enum FunctionInvocationHIPAtomicBuiltIn::BuiltIn
+FunctionInvocationHIPAtomicBuiltIn::FunctionSelector(
+    const Type &type, std::vector<const Type *> *params) {
+  assert(params != NULL);
+  params->clear();
+
+  assert(hip_atomic_func_table != NULL);
+  VectorFilter filter(hip_atomic_func_table);
+
+  enum BuiltIn func;
+  
+  // Reroll until we get a valid match for our type
+  // (Inc and Dec ONLY support unsigned int per standard HIP rules)
+  do {
+    int rnd = rnd_upto(filter.get_max_prob(), &filter);
+    func = (enum BuiltIn)filter.lookup(rnd);
+  } while ((func == kAtomicInc || func == kAtomicIncSystem ||
+            func == kAtomicDec || func == kAtomicDecSystem) &&
+           type.simple_type != eUInt);
+
+  // Parameter 0: address variable type
+  params->push_back(&type);
+
+  // Parameter 1 & 2: val / compare
+  if (func == kAtomicCAS || func == kAtomicCASSystem) {
+    params->push_back(&type);  // compare
+    params->push_back(&type);  // val
+  } else {
+    // All other operations take exactly 1 additional parameter.
+    // Add/Sub/Min/Max/Bitwise: operand val.
+    // Inc/Dec: ceiling/floor wrap val.
+    params->push_back(&type); 
+  }
+
+  return func;
+}
+
+void FunctionInvocationHIPAtomicBuiltIn::InitTables() {
+  hip_atomic_func_table = new DistributionTable();
+  hip_atomic_func_table->add_entry(kAtomicAdd, 10);
+  hip_atomic_func_table->add_entry(kAtomicAddSystem, 10);
+  hip_atomic_func_table->add_entry(kAtomicSub, 10);
+  hip_atomic_func_table->add_entry(kAtomicSubSystem, 10);
+  hip_atomic_func_table->add_entry(kAtomicMin, 10);
+  hip_atomic_func_table->add_entry(kAtomicMinSystem, 10);
+  hip_atomic_func_table->add_entry(kAtomicMax, 10);
+  hip_atomic_func_table->add_entry(kAtomicMaxSystem, 10);
+  hip_atomic_func_table->add_entry(kAtomicExch, 10);
+  hip_atomic_func_table->add_entry(kAtomicExchSystem, 10);
+  hip_atomic_func_table->add_entry(kAtomicCAS, 10);
+  hip_atomic_func_table->add_entry(kAtomicCASSystem, 10);
+  hip_atomic_func_table->add_entry(kAtomicAnd, 10);
+  hip_atomic_func_table->add_entry(kAtomicAndSystem, 10);
+  hip_atomic_func_table->add_entry(kAtomicOr, 10);
+  hip_atomic_func_table->add_entry(kAtomicOrSystem, 10);
+  hip_atomic_func_table->add_entry(kAtomicXor, 10);
+  hip_atomic_func_table->add_entry(kAtomicXorSystem, 10);
+  hip_atomic_func_table->add_entry(kAtomicInc, 10);
+  hip_atomic_func_table->add_entry(kAtomicIncSystem, 10);
+  hip_atomic_func_table->add_entry(kAtomicDec, 10);
+  hip_atomic_func_table->add_entry(kAtomicDecSystem, 10);
+}
+
+FunctionInvocationHIPAtomicBuiltIn *
+FunctionInvocationHIPAtomicBuiltIn::clone() const {
+  FunctionInvocationHIPAtomicBuiltIn *fi =
+      new FunctionInvocationHIPAtomicBuiltIn(built_in_, type_);
+  for (const Expression *expr : param_value) {
+    fi->param_value.push_back(expr->clone());
+  }
+  return fi;
+}
+
+void FunctionInvocationHIPAtomicBuiltIn::OutputFuncName(
+    std::ostream &out) const {
+  out << kAtomicNames[built_in_];
+}
+
+void FunctionInvocationHIPAtomicBuiltIn::Output(std::ostream &out) const {
+  OutputFuncName(out);
+  out << '(';
+
+  for (size_t idx = 0; idx < param_value.size(); ++idx) {
+    // Wrap the first parameter in an address-of operator
+    if (idx == 0) {
+      out << "&(";
+      param_value[idx]->Output(out);
+      out << ")";
+    } else {
+      param_value[idx]->Output(out);
+    }
+
+    if (idx < param_value.size() - 1) {
+      out << ", ";
+    }
+  }
+  out << ')';
+}
+
+const Type &FunctionInvocationHIPAtomicBuiltIn::GetParameterType(
+    size_t idx) const {
+  return type_;
+}
 }  // namespace HIPSmith

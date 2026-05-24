@@ -76,6 +76,11 @@ int main(int argc, char **argv) {
       continue;
     }
 
+    if (strcmp(argv[idx], "--atomics") == 0) { 
+      HIPSmith::HIPOptions::hip_atomic(true);
+      continue;
+    }
+
     if (strcmp(argv[idx], "--small") == 0) {
       HIPSmith::HIPOptions::small(true);
       continue;
