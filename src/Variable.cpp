@@ -524,10 +524,17 @@ bool Variable::is_hip_builtin(void) const {
 
 // --------------------------------------------------------------
 bool Variable::is_global(void) const {
+  // if we have a g_ we must be a global even in our special global struct
+  if (name.find("g_") == 0 || is_hip_const() || is_hip_device()) {
+    return true;
+  }
+
+  // check our parent for globalness after the intiial check 
   if (is_field_var()) {
     return field_var_of->is_global();
   }
-  return (name.find("g_") == 0 || is_hip_const());
+
+  return false;
 }
 
 bool Variable::is_local(void) const { return (name.find("l_") == 0); }
