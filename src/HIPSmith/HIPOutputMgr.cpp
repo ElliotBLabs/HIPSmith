@@ -99,8 +99,18 @@ void HIPOutputMgr::OutputHipGlobals() {
         out << "__device__ ";
       }
 
-      var->OutputDecl(out);
-      out << " = {};" << std::endl;
+      std::ostringstream oss_decl;
+      var->OutputDecl(oss_decl);
+      std::string decl_str = oss_decl.str();
+
+      if (var->is_hip_const()) {
+        size_t const_pos = decl_str.find("const ");
+        if (const_pos != std::string::npos) {
+          decl_str.erase(const_pos, 6); // Erase "const " (6 characters)
+        }
+      }
+
+      out << decl_str << " = {};" << std::endl;
 
     } else if (var->is_hip_managed()) {
       // output global def of a managed variable
