@@ -268,11 +268,11 @@ void HIPOutputMgr::OutputEntryFunction(Globals &globals) {
   if (HIPSmith::HIPOptions::hip_managed() || HIPOptions::hip_device() ||
       HIPOptions::hip_builtins() || HIPOptions::hip_sync() ||
       HIPOptions::hip_warp() || HIPOptions::hip_warp_match() ||
-      HIPOptions::hip_warp_shuffle() || HIPOptions::hip_warp_reduce()) {
+      HIPOptions::hip_warp_shuffle() || HIPOptions::hip_warp_reduce() || HIPOptions::hip_atomic()) {
     output_tab(driver_out, 1);
     driver_out << "// argc should be 1 so block size=1 enforced due to using "
                   "HIP's managed memory OR HIP device memory OR hip builtins "
-                  "like threadID or thread sync primitives or warp level stuff"
+                  "like threadID or thread sync primitives or warp level stuff or atomics"
                << std::endl;
     output_tab(driver_out, 1);
     driver_out << "const unsigned int num_threads = argc;" << std::endl;
@@ -287,7 +287,7 @@ void HIPOutputMgr::OutputEntryFunction(Globals &globals) {
       HIPSmith::HIPOptions::hip_managed() || HIPOptions::hip_device() ||
       HIPOptions::hip_builtins() || HIPOptions::hip_sync() ||
       HIPOptions::hip_warp() || HIPOptions::hip_warp_match() ||
-      HIPOptions::hip_warp_shuffle() || HIPOptions::hip_warp_reduce()) {
+      HIPOptions::hip_warp_shuffle() || HIPOptions::hip_warp_reduce() || HIPOptions::hip_atomic()) {
     output_tab(driver_out, 1);
     driver_out << "// argc should be 1 so block size=1 enforced due to using "
                   "HIP's shared memory, device memory or managed memory OR hip "

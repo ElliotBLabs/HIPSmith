@@ -26,6 +26,7 @@ DEFINE_HIPFLAG(hip_warp, bool, false)
 DEFINE_HIPFLAG(hip_warp_match, bool, false)
 DEFINE_HIPFLAG(hip_warp_shuffle, bool, false)
 DEFINE_HIPFLAG(hip_warp_reduce, bool, false)
+DEFINE_HIPFLAG(hip_atomic, bool, false)
 #undef DEFINE_HIPFLAG
 
 void HIPOptions::set_default_settings() {
@@ -44,6 +45,7 @@ void HIPOptions::set_default_settings() {
   hip_warp_match_ = false;
   hip_warp_shuffle_ = false;
   hip_warp_reduce_ = false;
+  hip_atomic_ = false;
 }
 
 void HIPOptions::ResolveCGOptions() {
