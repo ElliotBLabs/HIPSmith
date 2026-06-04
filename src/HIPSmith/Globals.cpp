@@ -87,14 +87,14 @@ void Globals::OutputStructInit(std::ostream &out) {
 
     // This is a bit hacky as we have already rename this to be like "p_xxxx->"
     // but we need to strip this back out as the only time!q
-    std::string raw_name = var->name;
-    size_t arrow_pos = raw_name.find("->");
-    if (arrow_pos != std::string::npos) {
-      raw_name = raw_name.substr(arrow_pos + 2);
-    }
+    // std::string raw_name = var->name;
+    // size_t arrow_pos = raw_name.find("->");
+    // if (arrow_pos != std::string::npos) {
+    //   raw_name = raw_name.substr(arrow_pos + 2);
+    // }
 
-    // ends up being like .g_16 = {5,83,0xDE0184DCC80FC3A0LL,5070,-10,0},
-    out << "." << raw_name << " = ";
+    // // ends up being like .g_16 = {5,83,0xDE0184DCC80FC3A0LL,5070,-10,0},
+    // out << "." << raw_name << " = ";
 
     if (var->isArray) {
       ArrayVariable *var_array = dynamic_cast<ArrayVariable *>(var);

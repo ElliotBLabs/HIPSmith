@@ -66,15 +66,15 @@ const char *const kAtomicNames[] = {
     "",  // Sentinel
     "safe_atomicAdd", "safe_atomicAdd_system",
     "safe_atomicSub", "safe_atomicSub_system",
-    "atomicMin", "atomicMin_system",      // Native
-    "atomicMax", "atomicMax_system",      // Native
-    "atomicExch", "atomicExch_system",    // Native
-    "atomicCAS", "atomicCAS_system",      // Native
-    "atomicAnd", "atomicAnd_system",      // Native
-    "atomicOr", "atomicOr_system",        // Native
-    "atomicXor", "atomicXor_system",      // Native
-    "atomicInc", "atomicInc_system",      // Native
-    "atomicDec", "atomicDec_system"       // Native
+    "safe_atomicMin", "safe_atomicMin_system",
+    "safe_atomicMax", "safe_atomicMax_system",
+    "safe_atomicExch", "safe_atomicExch_system",
+    "safe_atomicCAS", "safe_atomicCAS_system",
+    "safe_atomicAnd", "safe_atomicAnd_system",
+    "safe_atomicOr", "safe_atomicOr_system",
+    "safe_atomicXor", "safe_atomicXor_system",
+    "safe_atomicInc", "safe_atomicInc_system",
+    "safe_atomicDec", "safe_atomicDec_system"
 };
 }  // namespace
 
