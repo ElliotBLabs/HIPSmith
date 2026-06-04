@@ -806,3 +806,45 @@ GENERATE_SAFE_ATOMIC_SUB_ST(safe_atomicSub_system, atomicSub_system)
 
 #undef GENERATE_SAFE_ATOMIC_ADD_ST
 #undef GENERATE_SAFE_ATOMIC_SUB_ST
+
+#define GENERATE_SAFE_ATOMIC_PASSTHROUGH_2(SAFE_NAME, NATIVE_NAME) \
+template <typename T, typename U> \
+__device__ __forceinline__ T SAFE_NAME(T* address, U val_in) { \
+    T val = static_cast<T>(val_in); \
+    return NATIVE_NAME(address, val); \
+}
+
+#define GENERATE_SAFE_ATOMIC_PASSTHROUGH_3(SAFE_NAME, NATIVE_NAME) \
+template <typename T, typename U, typename V> \
+__device__ __forceinline__ T SAFE_NAME(T* address, U compare_in, V val_in) { \
+    T compare = static_cast<T>(compare_in); \
+    T val = static_cast<T>(val_in); \
+    return NATIVE_NAME(address, compare, val); \
+}
+
+// Instantiate Passthroughs (Fixes Csmith type deduction mismatches)
+GENERATE_SAFE_ATOMIC_PASSTHROUGH_2(safe_atomicMin, atomicMin)
+GENERATE_SAFE_ATOMIC_PASSTHROUGH_2(safe_atomicMin_system, atomicMin_system)
+GENERATE_SAFE_ATOMIC_PASSTHROUGH_2(safe_atomicMax, atomicMax)
+GENERATE_SAFE_ATOMIC_PASSTHROUGH_2(safe_atomicMax_system, atomicMax_system)
+GENERATE_SAFE_ATOMIC_PASSTHROUGH_2(safe_atomicExch, atomicExch)
+GENERATE_SAFE_ATOMIC_PASSTHROUGH_2(safe_atomicExch_system, atomicExch_system)
+GENERATE_SAFE_ATOMIC_PASSTHROUGH_2(safe_atomicAnd, atomicAnd)
+GENERATE_SAFE_ATOMIC_PASSTHROUGH_2(safe_atomicAnd_system, atomicAnd_system)
+GENERATE_SAFE_ATOMIC_PASSTHROUGH_2(safe_atomicOr, atomicOr)
+GENERATE_SAFE_ATOMIC_PASSTHROUGH_2(safe_atomicOr_system, atomicOr_system)
+GENERATE_SAFE_ATOMIC_PASSTHROUGH_2(safe_atomicXor, atomicXor)
+GENERATE_SAFE_ATOMIC_PASSTHROUGH_2(safe_atomicXor_system, atomicXor_system)
+
+// CAS takes 3 arguments
+GENERATE_SAFE_ATOMIC_PASSTHROUGH_3(safe_atomicCAS, atomicCAS)
+GENERATE_SAFE_ATOMIC_PASSTHROUGH_3(safe_atomicCAS_system, atomicCAS_system)
+
+// Inc and Dec natively require a second "rollover ceiling" argument in HIP
+GENERATE_SAFE_ATOMIC_PASSTHROUGH_2(safe_atomicInc, atomicInc)
+GENERATE_SAFE_ATOMIC_PASSTHROUGH_2(safe_atomicInc_system, atomicInc_system)
+GENERATE_SAFE_ATOMIC_PASSTHROUGH_2(safe_atomicDec, atomicDec)
+GENERATE_SAFE_ATOMIC_PASSTHROUGH_2(safe_atomicDec_system, atomicDec_system)
+
+#undef GENERATE_SAFE_ATOMIC_PASSTHROUGH_2
+#undef GENERATE_SAFE_ATOMIC_PASSTHROUGH_3
