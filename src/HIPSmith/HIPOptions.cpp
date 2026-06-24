@@ -19,6 +19,7 @@ DEFINE_HIPFLAG(vectors, bool, false)
 DEFINE_HIPFLAG(hip_consts, bool, false)
 DEFINE_HIPFLAG(hip_shared, bool, false)
 DEFINE_HIPFLAG(hip_managed, bool, false)
+DEFINE_HIPFLAG(hip_managed_safe_static_init, bool, true)
 DEFINE_HIPFLAG(hip_device, bool, false)
 DEFINE_HIPFLAG(hip_builtins, bool, false)
 DEFINE_HIPFLAG(hip_sync, bool, false)
@@ -37,6 +38,7 @@ void HIPOptions::set_default_settings() {
   hip_consts_ = false;
   hip_shared_ = false;
   hip_managed_ = false;
+  hip_managed_safe_static_init_ = true;
   hip_device_ = false;
   hip_builtins_ = false;
   hip_sync_ = false;
